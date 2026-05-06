@@ -73,6 +73,30 @@ it('allows diocese admins to see the backpack dashboard', function () {
     $response->assertOk();
 });
 
+it('uses forwarded https URLs for backpack basset assets', function () {
+    $user = User::factory()->dioceseAdmin()->create();
+
+    $response = $this
+        ->actingAs($user, 'backpack')
+        ->withServerVariables([
+            'REMOTE_ADDR' => '10.0.0.1',
+            'HTTP_HOST' => 'caritas-system-production.up.railway.app',
+            'HTTP_X_FORWARDED_HOST' => 'caritas-system-production.up.railway.app',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '443',
+        ])
+        ->get('/admin/dashboard');
+
+    $response->assertOk();
+
+    preg_match_all('/(?:src|href)=["\']([^"\']*\/storage\/basset\/[^"\']+)/i', $response->getContent(), $matches);
+
+    $bassetUrls = collect($matches[1]);
+
+    expect($bassetUrls)->not->toBeEmpty()
+        ->and($bassetUrls->filter(fn (string $url) => str_starts_with($url, 'http://'))->all())->toBe([]);
+});
+
 it('allows diocese admins to open parish and user management screens', function () {
     $user = User::factory()->dioceseAdmin()->create();
 
