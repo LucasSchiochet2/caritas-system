@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "07cd474eb09fd3bb5252906122b9b752",
+    "content-hash": "42ccae2d2a3c86ae71d6278f70bb1a0b",
     "packages": [
         {
             "name": "backpack/basset",
@@ -10161,7 +10161,7 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.2"
+        "php": "^8.3"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"
