@@ -5,7 +5,7 @@ return [
     'info' => [
         'title' => config('app.name', 'Caritas System').' API',
         'version' => '1.0.0',
-        'description' => 'API para autenticacao, paroquias e usuarios administrativos.',
+        'description' => 'API para autenticação, paróquias e usuários administrativos.',
     ],
     'servers' => [
         [
@@ -14,14 +14,14 @@ return [
         ],
     ],
     'tags' => [
-        ['name' => 'Autenticacao'],
-        ['name' => 'Paroquias'],
-        ['name' => 'Usuarios'],
+        ['name' => 'Autenticação'],
+        ['name' => 'Paróquias'],
+        ['name' => 'Usuários'],
     ],
     'paths' => [
         '/diocese/login' => [
             'post' => [
-                'tags' => ['Autenticacao'],
+                'tags' => ['Autenticação'],
                 'summary' => 'Login como admin da diocese',
                 'requestBody' => [
                     'required' => true,
@@ -43,8 +43,8 @@ return [
         ],
         '/parish/login' => [
             'post' => [
-                'tags' => ['Autenticacao'],
-                'summary' => 'Login em uma paroquia',
+                'tags' => ['Autenticação'],
+                'summary' => 'Login em uma paróquia',
                 'description' => 'Informe parish_id ou parish_slug junto com email e senha.',
                 'requestBody' => [
                     'required' => true,
@@ -67,12 +67,12 @@ return [
         ],
         '/me' => [
             'get' => [
-                'tags' => ['Autenticacao'],
-                'summary' => 'Dados do usuario autenticado',
+                'tags' => ['Autenticação'],
+                'summary' => 'Dados do usuário autenticado',
                 'security' => [['bearerAuth' => []]],
                 'responses' => [
                     '200' => [
-                        'description' => 'Usuario autenticado',
+                        'description' => 'Usuário autenticado',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
@@ -90,7 +90,7 @@ return [
         ],
         '/logout' => [
             'post' => [
-                'tags' => ['Autenticacao'],
+                'tags' => ['Autenticação'],
                 'summary' => 'Revoga o token atual',
                 'security' => [['bearerAuth' => []]],
                 'responses' => [
@@ -113,11 +113,11 @@ return [
         ],
         '/parishes' => [
             'get' => [
-                'tags' => ['Paroquias'],
-                'summary' => 'Lista paroquias ativas',
+                'tags' => ['Paróquias'],
+                'summary' => 'Lista paróquias ativas',
                 'responses' => [
                     '200' => [
-                        'description' => 'Lista de paroquias',
+                        'description' => 'Lista de paróquias',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
@@ -135,8 +135,8 @@ return [
                 ],
             ],
             'post' => [
-                'tags' => ['Paroquias'],
-                'summary' => 'Cria uma paroquia',
+                'tags' => ['Paróquias'],
+                'summary' => 'Cria uma paróquia',
                 'description' => 'Requer token de admin da diocese.',
                 'security' => [['bearerAuth' => []]],
                 'requestBody' => [
@@ -145,7 +145,7 @@ return [
                         'application/json' => [
                             'schema' => ['$ref' => '#/components/schemas/StoreParishRequest'],
                             'example' => [
-                                'name' => 'Paroquia Sao Jose',
+                                'name' => 'Paróquia São José',
                                 'cnpj' => null,
                                 'active' => true,
                             ],
@@ -154,7 +154,7 @@ return [
                 ],
                 'responses' => [
                     '201' => [
-                        'description' => 'Paroquia criada',
+                        'description' => 'Paróquia criada',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
@@ -174,12 +174,12 @@ return [
         ],
         '/roles' => [
             'get' => [
-                'tags' => ['Usuarios'],
-                'summary' => 'Lista roles disponiveis',
-                'description' => 'Retorna roles do sistema e roles de vinculo com paroquia para preencher selects no frontend.',
+                'tags' => ['Usuários'],
+                'summary' => 'Lista perfis disponíveis',
+                'description' => 'Retorna perfis do sistema e perfis de vínculo com paróquia para preencher selects no frontend.',
                 'responses' => [
                     '200' => [
-                        'description' => 'Lista de roles',
+                        'description' => 'Lista de perfis',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
@@ -208,9 +208,9 @@ return [
         ],
         '/users' => [
             'post' => [
-                'tags' => ['Usuarios'],
-                'summary' => 'Cria usuario administrativo',
-                'description' => 'Token da diocese pode informar parish_ids. Token paroquial cria usuario na propria paroquia.',
+                'tags' => ['Usuários'],
+                'summary' => 'Cria usuário administrativo',
+                'description' => 'Token da diocese pode informar parish_ids. Token paroquial cria usuário na própria paróquia.',
                 'security' => [['bearerAuth' => []]],
                 'requestBody' => [
                     'required' => true,
@@ -229,7 +229,7 @@ return [
                 ],
                 'responses' => [
                     '201' => [
-                        'description' => 'Usuario criado',
+                        'description' => 'Usuário criado',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
@@ -355,13 +355,13 @@ return [
                 ],
             ],
             'Unauthenticated' => [
-                'description' => 'Nao autenticado',
+                'description' => 'Não autenticado',
             ],
             'Forbidden' => [
-                'description' => 'Sem permissao para executar esta acao',
+                'description' => 'Sem permissão para executar esta ação',
             ],
             'ValidationError' => [
-                'description' => 'Erro de validacao',
+                'description' => 'Erro de validação',
                 'content' => [
                     'application/json' => [
                         'schema' => ['$ref' => '#/components/schemas/ValidationError'],
