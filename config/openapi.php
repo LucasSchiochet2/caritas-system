@@ -87,6 +87,43 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                 ],
             ],
+            'patch' => [
+                'tags' => ['Autenticação'],
+                'summary' => 'Atualiza os dados do usuário autenticado',
+                'description' => 'Permite alterar apenas nome, email e senha do próprio usuário.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateSelfRequest'],
+                            'example' => [
+                                'name' => 'Meu Nome',
+                                'email' => 'meu-email@example.com',
+                                'password' => 'nova-senha',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Usuário atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/User'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
         ],
         '/logout' => [
             'post' => [
@@ -207,6 +244,32 @@ return [
             ],
         ],
         '/users' => [
+            'get' => [
+                'tags' => ['Usuários'],
+                'summary' => 'Lista usuários',
+                'description' => 'Admin da diocese lista todos os usuários. Admin paroquial lista usuários vinculados à própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de usuários',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/User'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
             'post' => [
                 'tags' => ['Usuários'],
                 'summary' => 'Cria usuário administrativo',
@@ -244,6 +307,73 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                     '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/users/{user}' => [
+            'patch' => [
+                'tags' => ['Usuários'],
+                'summary' => 'Atualiza um usuário',
+                'description' => 'Admins podem editar usuários no seu escopo. O próprio usuário pode editar dados básicos também pelo endpoint /me.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'user',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateUserRequest'],
+                            'example' => [
+                                'name' => 'Usuário Atualizado',
+                                'email' => 'usuario@example.com',
+                                'parish_ids' => [1],
+                                'parish_role' => 'admin',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Usuário atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/User'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Usuários'],
+                'summary' => 'Exclui um usuário',
+                'description' => 'Admins podem excluir usuários no seu escopo. Não é permitido excluir a própria conta por este endpoint.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'user',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Usuário excluído'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -298,6 +428,27 @@ return [
                     'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin'], 'default' => 'admin'],
                 ],
             ],
+            'UpdateSelfRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'email' => ['type' => 'string', 'format' => 'email'],
+                    'password' => ['type' => 'string', 'format' => 'password', 'minLength' => 8],
+                ],
+            ],
+            'UpdateUserRequest' => [
+                'allOf' => [
+                    ['$ref' => '#/components/schemas/UpdateSelfRequest'],
+                    [
+                        'type' => 'object',
+                        'properties' => [
+                            'system_role' => ['type' => 'string', 'enum' => ['user', 'diocese_admin']],
+                            'parish_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                            'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin']],
+                        ],
+                    ],
+                ],
+            ],
             'Parish' => [
                 'type' => 'object',
                 'properties' => [
@@ -306,6 +457,17 @@ return [
                     'slug' => ['type' => 'string'],
                     'cnpj' => ['type' => 'string', 'nullable' => true],
                     'active' => ['type' => 'boolean'],
+                ],
+            ],
+            'UserParish' => [
+                'allOf' => [
+                    ['$ref' => '#/components/schemas/Parish'],
+                    [
+                        'type' => 'object',
+                        'properties' => [
+                            'role' => ['type' => 'string', 'enum' => ['member', 'admin']],
+                        ],
+                    ],
                 ],
             ],
             'User' => [
@@ -317,7 +479,7 @@ return [
                     'system_role' => ['type' => 'string', 'enum' => ['user', 'diocese_admin']],
                     'parishes' => [
                         'type' => 'array',
-                        'items' => ['$ref' => '#/components/schemas/Parish'],
+                        'items' => ['$ref' => '#/components/schemas/UserParish'],
                     ],
                 ],
             ],
