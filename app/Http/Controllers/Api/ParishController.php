@@ -23,7 +23,7 @@ class ParishController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()->isDioceseAdmin() && $request->user()->tokenCan('diocese'), 403);
+        $this->authorizeDioceseAdmin($request);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -38,6 +38,36 @@ class ParishController extends Controller
         ]);
 
         return response()->json(['data' => $this->payload($parish)], 201);
+    }
+
+    public function update(Request $request, Parish $parish): JsonResponse
+    {
+        $this->authorizeDioceseAdmin($request);
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'cnpj' => ['nullable', 'string', 'max:18', Rule::unique('parishes', 'cnpj')->ignore($parish)],
+            'active' => ['sometimes', 'boolean'],
+        ]);
+
+        $parish->fill($data);
+        $parish->save();
+
+        return response()->json(['data' => $this->payload($parish)]);
+    }
+
+    public function destroy(Request $request, Parish $parish): JsonResponse
+    {
+        $this->authorizeDioceseAdmin($request);
+
+        $parish->delete();
+
+        return response()->json(null, 204);
+    }
+
+    private function authorizeDioceseAdmin(Request $request): void
+    {
+        abort_unless($request->user()->isDioceseAdmin() && $request->user()->tokenCan('diocese'), 403);
     }
 
     /**

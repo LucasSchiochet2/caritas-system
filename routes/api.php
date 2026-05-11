@@ -19,6 +19,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('users', [UserController::class, 'index']);
     Route::post('parishes', [ParishController::class, 'store']);
+    Route::patch('parishes/{parish}', [ParishController::class, 'update']);
+    Route::delete('parishes/{parish}', [ParishController::class, 'destroy']);
     Route::post('users', [UserController::class, 'store']);
     Route::patch('users/{user}', [UserController::class, 'update']);
     Route::delete('users/{user}', [UserController::class, 'destroy']);

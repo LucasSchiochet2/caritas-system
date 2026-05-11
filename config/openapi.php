@@ -209,6 +209,72 @@ return [
                 ],
             ],
         ],
+        '/parishes/{parish}' => [
+            'patch' => [
+                'tags' => ['Paróquias'],
+                'summary' => 'Atualiza uma paróquia',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parish',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateParishRequest'],
+                            'example' => [
+                                'name' => 'Paróquia São José',
+                                'cnpj' => '12.345.678/0001-90',
+                                'active' => true,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Paróquia atualizada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Parish'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Paróquias'],
+                'summary' => 'Exclui uma paróquia',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parish',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Paróquia excluída'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
         '/roles' => [
             'get' => [
                 'tags' => ['Usuários'],
@@ -414,6 +480,14 @@ return [
                     'name' => ['type' => 'string', 'maxLength' => 255],
                     'cnpj' => ['type' => 'string', 'nullable' => true, 'maxLength' => 18],
                     'active' => ['type' => 'boolean', 'default' => true],
+                ],
+            ],
+            'UpdateParishRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'cnpj' => ['type' => 'string', 'nullable' => true, 'maxLength' => 18],
+                    'active' => ['type' => 'boolean'],
                 ],
             ],
             'StoreUserRequest' => [
