@@ -5,7 +5,7 @@ return [
     'info' => [
         'title' => config('app.name', 'Caritas System').' API',
         'version' => '1.0.0',
-        'description' => 'API para autenticação, estoque do bazar, paróquias e usuários administrativos.',
+        'description' => 'API para autenticação, estoque e clientes do bazar, paróquias e usuários administrativos.',
     ],
     'servers' => [
         [
@@ -281,6 +281,117 @@ return [
                     '204' => ['description' => 'Item excluído'],
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/bazaar-customers' => [
+            'get' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Lista clientes do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de clientes do bazar',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/BazaarCustomer'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Cadastra cliente do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreBazaarCustomerRequest'],
+                            'example' => [
+                                'name' => 'Maria Silva',
+                                'birth_date' => '1988-04-20',
+                                'cpf' => '123.456.789-01',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Cliente criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BazaarCustomer'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/bazaar-customers/{bazaarCustomer}' => [
+            'patch' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Atualiza cliente do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'bazaarCustomer',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateBazaarCustomerRequest'],
+                            'example' => [
+                                'name' => 'Maria Oliveira',
+                                'birth_date' => '1988-05-21',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Cliente atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BazaarCustomer'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
                 ],
             ],
         ],
@@ -634,6 +745,23 @@ return [
                     'condition' => ['type' => 'string'],
                 ],
             ],
+            'StoreBazaarCustomerRequest' => [
+                'type' => 'object',
+                'required' => ['name', 'birth_date', 'cpf'],
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'birth_date' => ['type' => 'string', 'format' => 'date'],
+                    'cpf' => ['type' => 'string', 'maxLength' => 14],
+                ],
+            ],
+            'UpdateBazaarCustomerRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'birth_date' => ['type' => 'string', 'format' => 'date'],
+                    'cpf' => ['type' => 'string', 'maxLength' => 14],
+                ],
+            ],
             'StoreParishRequest' => [
                 'type' => 'object',
                 'required' => ['name'],
@@ -705,6 +833,15 @@ return [
                     'gender' => ['type' => 'string', 'nullable' => true],
                     'quantity' => ['type' => 'integer'],
                     'condition' => ['type' => 'string'],
+                ],
+            ],
+            'BazaarCustomer' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'birth_date' => ['type' => 'string', 'format' => 'date'],
+                    'cpf' => ['type' => 'string'],
                 ],
             ],
             'UserParish' => [

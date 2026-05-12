@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ParishRole;
+use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
 use App\Models\Parish;
 use App\Models\User;
@@ -56,6 +57,46 @@ it('lets diocese admins manage bazaar inventory items', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('bazaar_items', ['id' => $item->id]);
+});
+
+it('lets diocese admins manage bazaar customers', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/bazaar-customers', [
+            'name' => 'Maria Silva',
+            'birth_date' => '1988-04-20',
+            'cpf' => '123.456.789-01',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Maria Silva')
+        ->assertJsonPath('data.birth_date', '1988-04-20')
+        ->assertJsonPath('data.cpf', '123.456.789-01');
+
+    $customer = BazaarCustomer::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/bazaar-customers')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Maria Silva']);
+
+    $this->withToken($token)
+        ->patchJson('/api/bazaar-customers/'.$customer->id, [
+            'name' => 'Maria Oliveira',
+            'birth_date' => '1988-05-21',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Maria Oliveira')
+        ->assertJsonPath('data.birth_date', '1988-05-21')
+        ->assertJsonPath('data.cpf', '123.456.789-01');
+
+    $this->assertDatabaseHas('bazaar_customers', [
+        'id' => $customer->id,
+        'name' => 'Maria Oliveira',
+        'birth_date' => '1988-05-21',
+        'cpf' => '123.456.789-01',
+    ]);
 });
 
 it('logs in a diocese admin and creates parishes', function () {
@@ -260,6 +301,19 @@ it('prevents parish tokens from managing bazaar inventory', function () {
         'name' => 'Item bloqueado',
         'quantity' => 1,
         'condition' => 'novo',
+    ])->assertForbidden();
+});
+
+it('prevents parish tokens from managing bazaar customers', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create(['password' => 'password']);
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)->postJson('/api/bazaar-customers', [
+        'name' => 'Cliente bloqueado',
+        'birth_date' => '1990-01-01',
+        'cpf' => '987.654.321-00',
     ])->assertForbidden();
 });
 

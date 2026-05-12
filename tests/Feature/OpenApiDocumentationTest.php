@@ -50,6 +50,7 @@ it('serves the openapi json document', function () {
         ->assertOk()
         ->assertJsonPath('openapi', '3.0.3')
         ->assertJsonPath('paths./diocese/login.post.summary', 'Login como admin da diocese')
+        ->assertJsonPath('paths./bazaar-customers.post.summary', 'Cadastra cliente do bazar')
         ->assertJsonPath('paths./parishes.post.summary', 'Cria uma paróquia')
         ->assertJsonPath('paths./roles.get.summary', 'Lista perfis disponíveis')
         ->assertJsonPath('tags.0.name', 'Autenticação')
