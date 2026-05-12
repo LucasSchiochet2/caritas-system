@@ -100,8 +100,18 @@ it('uses forwarded https URLs for backpack basset assets', function () {
 it('allows diocese admins to open parish and user management screens', function () {
     $user = User::factory()->dioceseAdmin()->create();
 
+    $this->actingAs($user, 'backpack')->get('/admin/bazaar-item')->assertOk();
     $this->actingAs($user, 'backpack')->get('/admin/parish')->assertOk();
     $this->actingAs($user, 'backpack')->get('/admin/user')->assertOk();
+});
+
+it('prevents parish admins from opening bazaar inventory management', function () {
+    $user = User::factory()->create();
+    $parish = Parish::factory()->create();
+
+    $user->parishes()->attach($parish, ['role' => 'admin']);
+
+    $this->actingAs($user, 'backpack')->get('/admin/bazaar-item')->assertForbidden();
 });
 
 it('generates unique parish slugs from the parish name', function () {

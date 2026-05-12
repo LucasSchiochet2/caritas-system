@@ -5,7 +5,7 @@ return [
     'info' => [
         'title' => config('app.name', 'Caritas System').' API',
         'version' => '1.0.0',
-        'description' => 'API para autenticação, paróquias e usuários administrativos.',
+        'description' => 'API para autenticação, estoque do bazar, paróquias e usuários administrativos.',
     ],
     'servers' => [
         [
@@ -15,6 +15,7 @@ return [
     ],
     'tags' => [
         ['name' => 'Autenticação'],
+        ['name' => 'Bazar'],
         ['name' => 'Paróquias'],
         ['name' => 'Usuários'],
     ],
@@ -145,6 +146,141 @@ return [
                         ],
                     ],
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                ],
+            ],
+        ],
+        '/bazaar-items' => [
+            'get' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Lista itens do estoque do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de itens do bazar',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/BazaarItem'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Adiciona item ao estoque do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreBazaarItemRequest'],
+                            'example' => [
+                                'suggested_price' => 49.9,
+                                'name' => 'Camisa social',
+                                'color' => 'Azul',
+                                'size' => 'M',
+                                'gender' => 'masculino',
+                                'quantity' => 4,
+                                'condition' => 'seminovo',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Item criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BazaarItem'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/bazaar-items/{bazaarItem}' => [
+            'patch' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Atualiza item do estoque do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'bazaarItem',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateBazaarItemRequest'],
+                            'example' => [
+                                'suggested_price' => 59.9,
+                                'quantity' => 2,
+                                'condition' => 'usado',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Item atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BazaarItem'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Bazar'],
+                'summary' => 'Exclui item do estoque do bazar',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'bazaarItem',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Item excluído'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -473,6 +609,31 @@ return [
                     ],
                 ],
             ],
+            'StoreBazaarItemRequest' => [
+                'type' => 'object',
+                'required' => ['suggested_price', 'name', 'quantity', 'condition'],
+                'properties' => [
+                    'suggested_price' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                    'name' => ['type' => 'string'],
+                    'color' => ['type' => 'string', 'nullable' => true],
+                    'size' => ['type' => 'string', 'nullable' => true],
+                    'gender' => ['type' => 'string', 'nullable' => true],
+                    'quantity' => ['type' => 'integer', 'minimum' => 0],
+                    'condition' => ['type' => 'string'],
+                ],
+            ],
+            'UpdateBazaarItemRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'suggested_price' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                    'name' => ['type' => 'string'],
+                    'color' => ['type' => 'string', 'nullable' => true],
+                    'size' => ['type' => 'string', 'nullable' => true],
+                    'gender' => ['type' => 'string', 'nullable' => true],
+                    'quantity' => ['type' => 'integer', 'minimum' => 0],
+                    'condition' => ['type' => 'string'],
+                ],
+            ],
             'StoreParishRequest' => [
                 'type' => 'object',
                 'required' => ['name'],
@@ -531,6 +692,19 @@ return [
                     'slug' => ['type' => 'string'],
                     'cnpj' => ['type' => 'string', 'nullable' => true],
                     'active' => ['type' => 'boolean'],
+                ],
+            ],
+            'BazaarItem' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'suggested_price' => ['type' => 'number', 'format' => 'float'],
+                    'name' => ['type' => 'string'],
+                    'color' => ['type' => 'string', 'nullable' => true],
+                    'size' => ['type' => 'string', 'nullable' => true],
+                    'gender' => ['type' => 'string', 'nullable' => true],
+                    'quantity' => ['type' => 'integer'],
+                    'condition' => ['type' => 'string'],
                 ],
             ],
             'UserParish' => [

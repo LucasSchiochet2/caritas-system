@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BazaarItemController;
 use App\Http\Controllers\Api\ParishController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -17,6 +18,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('me', [UserController::class, 'updateMe']);
     Route::post('logout', [AuthController::class, 'logout']);
 
+    Route::get('bazaar-items', [BazaarItemController::class, 'index']);
+    Route::post('bazaar-items', [BazaarItemController::class, 'store']);
+    Route::patch('bazaar-items/{bazaarItem}', [BazaarItemController::class, 'update']);
+    Route::delete('bazaar-items/{bazaarItem}', [BazaarItemController::class, 'destroy']);
     Route::get('users', [UserController::class, 'index']);
     Route::post('parishes', [ParishController::class, 'store']);
     Route::patch('parishes/{parish}', [ParishController::class, 'update']);

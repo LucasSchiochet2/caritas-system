@@ -1,11 +1,62 @@
 <?php
 
 use App\Enums\ParishRole;
+use App\Models\BazaarItem;
 use App\Models\Parish;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+it('lets diocese admins manage bazaar inventory items', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/bazaar-items', [
+            'suggested_price' => 39.9,
+            'name' => 'Vestido floral',
+            'color' => 'Rosa',
+            'size' => 'M',
+            'gender' => 'feminino',
+            'quantity' => 3,
+            'condition' => 'seminovo',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Vestido floral')
+        ->assertJsonPath('data.quantity', 3);
+
+    $item = BazaarItem::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/bazaar-items')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Vestido floral']);
+
+    $this->withToken($token)
+        ->patchJson('/api/bazaar-items/'.$item->id, [
+            'name' => 'Vestido longo floral',
+            'quantity' => 1,
+            'condition' => 'usado',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Vestido longo floral')
+        ->assertJsonPath('data.quantity', 1)
+        ->assertJsonPath('data.condition', 'usado');
+
+    $this->assertDatabaseHas('bazaar_items', [
+        'id' => $item->id,
+        'name' => 'Vestido longo floral',
+        'quantity' => 1,
+        'condition' => 'usado',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/bazaar-items/'.$item->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('bazaar_items', ['id' => $item->id]);
+});
 
 it('logs in a diocese admin and creates parishes', function () {
     User::factory()->dioceseAdmin()->create([
@@ -195,6 +246,20 @@ it('prevents parish tokens from creating parishes', function () {
 
     $this->withToken($token)->postJson('/api/parishes', [
         'name' => 'Paroquia Bloqueada',
+    ])->assertForbidden();
+});
+
+it('prevents parish tokens from managing bazaar inventory', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create(['password' => 'password']);
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)->postJson('/api/bazaar-items', [
+        'suggested_price' => 10,
+        'name' => 'Item bloqueado',
+        'quantity' => 1,
+        'condition' => 'novo',
     ])->assertForbidden();
 });
 
