@@ -7,6 +7,7 @@ use Database\Factories\ParishFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Parish extends Model
@@ -69,6 +70,16 @@ class Parish extends Model
         return $this->belongsToMany(User::class)
             ->withPivot('role')
             ->withTimestamps();
+    }
+
+    public function families(): HasMany
+    {
+        return $this->hasMany(Family::class);
+    }
+
+    public function assistedFamilyMembers(): HasMany
+    {
+        return $this->hasMany(AssistedFamilyMember::class);
     }
 
     public function admins(): BelongsToMany

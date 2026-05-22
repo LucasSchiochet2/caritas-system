@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\ParishRole;
+use App\Models\AssistedFamilyMember;
 use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
+use App\Models\Family;
 use App\Models\Parish;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -97,6 +99,338 @@ it('lets diocese admins manage bazaar customers', function () {
         'birth_date' => '1988-05-21',
         'cpf' => '123.456.789-01',
     ]);
+});
+
+it('lets diocese admins manage families from any parish', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create(['name' => 'Paroquia Sao Pedro']);
+    $otherParish = Parish::factory()->create();
+    $otherFamily = Family::factory()->for($otherParish)->create(['name' => 'Familia Oliveira']);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/families', [
+            'parish_id' => $parish->id,
+            'address' => 'Rua das Flores, 123',
+            'observations' => 'Recebe cesta basica mensal',
+            'responsible' => [
+                'name' => 'Carla Silva',
+                'mother_name' => 'Ana Silva',
+                'relationship' => 'mae',
+                'age' => 34,
+                'registration_status' => 'ativo',
+                'registration_date' => '2026-05-22',
+                'personal_income' => 750.50,
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Carla Silva')
+        ->assertJsonPath('data.parish_id', $parish->id)
+        ->assertJsonPath('data.parish.name', 'Paroquia Sao Pedro')
+        ->assertJsonPath('data.responsible.name', 'Carla Silva')
+        ->assertJsonPath('data.responsible.mother_name', 'Ana Silva')
+        ->assertJsonPath('data.responsible.relationship', 'mae')
+        ->assertJsonPath('data.responsible.age', 34)
+        ->assertJsonPath('data.responsible.is_responsible', true)
+        ->assertJsonPath('data.assisted_family_members.0.mother_name', 'Ana Silva');
+
+    $family = Family::query()->where('name', 'Carla Silva')->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/families')
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+
+    $this->withToken($token)
+        ->getJson('/api/families?all=true')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Carla Silva'])
+        ->assertJsonFragment(['name' => 'Familia Oliveira']);
+
+    $this->withToken($token)
+        ->getJson('/api/families?all=true&search=Carla')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Carla Silva'])
+        ->assertJsonMissing(['name' => 'Familia Oliveira']);
+
+    $this->withToken($token)
+        ->patchJson('/api/families/'.$family->id, [
+            'address' => 'Rua Nova, 456',
+            'parish_id' => $otherParish->id,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Carla Silva')
+        ->assertJsonPath('data.address', 'Rua Nova, 456')
+        ->assertJsonPath('data.parish_id', $otherParish->id);
+
+    $this->assertDatabaseHas('families', [
+        'id' => $family->id,
+        'name' => 'Carla Silva',
+        'parish_id' => $otherParish->id,
+    ]);
+
+    $this->assertDatabaseHas('assisted_family_members', [
+        'family_id' => $family->id,
+        'parish_id' => $otherParish->id,
+        'name' => 'Carla Silva',
+        'mother_name' => 'Ana Silva',
+        'relationship' => 'mae',
+        'age' => 34,
+        'is_responsible' => true,
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/families/'.$otherFamily->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('families', ['id' => $otherFamily->id]);
+});
+
+it('limits parish admins to families from their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $ownFamily = Family::factory()->for($parish)->create(['name' => 'Familia Souza']);
+    $otherFamily = Family::factory()->for($otherParish)->create(['name' => 'Familia Costa']);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/families')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Familia Souza'])
+        ->assertJsonMissing(['name' => 'Familia Costa']);
+
+    $this->withToken($token)
+        ->getJson('/api/families?all=true')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->getJson('/api/families?search=Souza')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Familia Souza'])
+        ->assertJsonMissing(['name' => 'Familia Costa']);
+
+    $this->withToken($token)
+        ->postJson('/api/families', [
+            'address' => 'Rua Central, 10',
+            'responsible' => [
+                'name' => 'Joana Almeida',
+                'mother_name' => 'Joana Almeida',
+                'relationship' => 'mae',
+                'age' => 42,
+                'registration_status' => 'ativo',
+                'registration_date' => '2026-05-22',
+                'personal_income' => 450,
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Joana Almeida')
+        ->assertJsonPath('data.parish_id', $parish->id)
+        ->assertJsonPath('data.responsible.name', 'Joana Almeida')
+        ->assertJsonPath('data.responsible.mother_name', 'Joana Almeida');
+
+    $this->assertDatabaseHas('families', [
+        'name' => 'Joana Almeida',
+        'parish_id' => $parish->id,
+    ]);
+
+    $this->withToken($token)
+        ->patchJson('/api/families/'.$ownFamily->id, ['observations' => 'Atualizada'])
+        ->assertOk()
+        ->assertJsonPath('data.observations', 'Atualizada');
+
+    $this->withToken($token)
+        ->patchJson('/api/families/'.$otherFamily->id, ['name' => 'Bloqueada'])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->postJson('/api/families', [
+            'parish_id' => $otherParish->id,
+            'name' => 'Familia Fora do Escopo',
+            'responsible' => [
+                'name' => 'Responsavel Bloqueado',
+                'mother_name' => 'Responsavel Bloqueado',
+                'relationship' => 'pai',
+                'age' => 40,
+                'registration_status' => 'ativo',
+                'registration_date' => '2026-05-22',
+                'personal_income' => 0,
+            ],
+        ])
+        ->assertForbidden();
+});
+
+it('requires a responsible assisted member when creating a family', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/families', [
+            'parish_id' => $parish->id,
+            'name' => 'Familia Sem Responsavel',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['responsible']);
+});
+
+it('requires the responsible person name and mother name when creating a family', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/families', [
+            'parish_id' => $parish->id,
+            'name' => 'Familia Incompleta',
+            'responsible' => [
+                'relationship' => 'mae',
+                'age' => 34,
+                'registration_status' => 'ativo',
+                'registration_date' => '2026-05-22',
+                'personal_income' => 750.50,
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['responsible.name', 'responsible.mother_name']);
+});
+
+it('lets admins manage assisted family members inside families', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $family = Family::factory()->create(['name' => 'Familia Ferreira']);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/families/'.$family->id.'/assisted-family-members', [
+            'name' => 'Julia Ferreira',
+            'mother_name' => 'Ana Ferreira',
+            'relationship' => 'filha',
+            'age' => 12,
+            'registration_status' => 'ativo',
+            'registration_date' => '2026-05-22',
+            'personal_income' => 750.50,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.family_id', $family->id)
+        ->assertJsonPath('data.parish_id', $family->parish_id)
+        ->assertJsonPath('data.name', 'Julia Ferreira')
+        ->assertJsonPath('data.mother_name', 'Ana Ferreira')
+        ->assertJsonPath('data.relationship', 'filha')
+        ->assertJsonPath('data.age', 12)
+        ->assertJsonPath('data.registration_status', 'ativo')
+        ->assertJsonPath('data.registration_date', '2026-05-22');
+
+    $member = AssistedFamilyMember::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/assisted-family-members')
+        ->assertOk()
+        ->assertJsonFragment(['mother_name' => 'Ana Ferreira']);
+
+    $this->withToken($token)
+        ->getJson('/api/families?all=true')
+        ->assertOk()
+        ->assertJsonPath('data.0.assisted_family_members.0.mother_name', 'Ana Ferreira');
+
+    $this->withToken($token)
+        ->patchJson('/api/assisted-family-members/'.$member->id, [
+            'name' => 'Julio Ferreira',
+            'relationship' => 'filho',
+            'age' => 13,
+            'registration_status' => 'inativo',
+            'personal_income' => 900,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Julio Ferreira')
+        ->assertJsonPath('data.relationship', 'filho')
+        ->assertJsonPath('data.age', 13)
+        ->assertJsonPath('data.registration_status', 'inativo')
+        ->assertJsonPath('data.personal_income', '900.00');
+
+    $this->assertDatabaseHas('assisted_family_members', [
+        'id' => $member->id,
+        'family_id' => $family->id,
+        'parish_id' => $family->parish_id,
+        'name' => 'Julio Ferreira',
+        'relationship' => 'filho',
+        'age' => 13,
+        'registration_status' => 'inativo',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/assisted-family-members/'.$member->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('assisted_family_members', ['id' => $member->id]);
+});
+
+it('prevents deleting the responsible assisted family member directly', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $family = Family::factory()->create();
+    $responsible = AssistedFamilyMember::factory()->responsible()->for($family, 'family')->create([
+        'parish_id' => $family->parish_id,
+    ]);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/assisted-family-members/'.$responsible->id, [
+            'name' => 'Responsavel Atualizado',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Responsavel Atualizado');
+
+    $this->assertDatabaseHas('families', [
+        'id' => $family->id,
+        'name' => 'Responsavel Atualizado',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/assisted-family-members/'.$responsible->id)
+        ->assertUnprocessable();
+
+    $this->assertDatabaseHas('assisted_family_members', [
+        'id' => $responsible->id,
+        'is_responsible' => true,
+    ]);
+});
+
+it('limits parish admins to assisted members from their parish families', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $otherMember = AssistedFamilyMember::factory()->for($otherFamily, 'family')->create([
+        'parish_id' => $otherParish->id,
+        'mother_name' => 'Maria Bloqueada',
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/families/'.$family->id.'/assisted-family-members', [
+            'name' => 'Joana Souza',
+            'mother_name' => 'Joana Souza',
+            'relationship' => 'mae',
+            'age' => 38,
+            'registration_status' => 'ativo',
+            'registration_date' => '2026-05-22',
+            'personal_income' => 450,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.family_id', $family->id)
+        ->assertJsonPath('data.parish_id', $parish->id);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$otherFamily->id.'/assisted-family-members')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->patchJson('/api/assisted-family-members/'.$otherMember->id, [
+            'registration_status' => 'ativo',
+        ])
+        ->assertForbidden();
 });
 
 it('logs in a diocese admin and creates parishes', function () {

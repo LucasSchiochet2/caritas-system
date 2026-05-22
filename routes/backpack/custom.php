@@ -46,6 +46,7 @@ Route::group([
     Route::crud('bazaar-item', 'BazaarItemCrudController');
     Route::crud('parish', 'ParishCrudController');
     Route::crud('user', 'UserCrudController');
+    Route::crud('family', 'FamilyCrudController');
 }); // this should be the absolute last line of this file
 
 /**

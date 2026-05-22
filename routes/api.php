@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\AssistedFamilyMemberController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BazaarCustomerController;
 use App\Http\Controllers\Api\BazaarItemController;
+use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\ParishController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -26,6 +28,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('bazaar-customers', [BazaarCustomerController::class, 'index']);
     Route::post('bazaar-customers', [BazaarCustomerController::class, 'store']);
     Route::patch('bazaar-customers/{bazaarCustomer}', [BazaarCustomerController::class, 'update']);
+    Route::get('families', [FamilyController::class, 'index']);
+    Route::post('families', [FamilyController::class, 'store']);
+    Route::get('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'index']);
+    Route::post('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'store']);
+    Route::patch('families/{family}', [FamilyController::class, 'update']);
+    Route::delete('families/{family}', [FamilyController::class, 'destroy']);
+    Route::patch('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'update']);
+    Route::delete('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'destroy']);
     Route::get('users', [UserController::class, 'index']);
     Route::post('parishes', [ParishController::class, 'store']);
     Route::patch('parishes/{parish}', [ParishController::class, 'update']);

@@ -5,7 +5,7 @@ return [
     'info' => [
         'title' => config('app.name', 'Caritas System').' API',
         'version' => '1.0.0',
-        'description' => 'API para autenticação, estoque e clientes do bazar, paróquias e usuários administrativos.',
+        'description' => 'API para autenticação, estoque e clientes do bazar, paróquias, famílias e usuários administrativos.',
     ],
     'servers' => [
         [
@@ -17,6 +17,7 @@ return [
         ['name' => 'Autenticação'],
         ['name' => 'Bazar'],
         ['name' => 'Paróquias'],
+        ['name' => 'Famílias'],
         ['name' => 'Usuários'],
     ],
     'paths' => [
@@ -522,6 +523,313 @@ return [
                 ],
             ],
         ],
+        '/families' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Lista famílias',
+                'description' => 'Por padrão lista famílias das próprias paróquias do token. Admin da diocese pode informar all=true para listar todas as paróquias.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'search',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'string'],
+                        'description' => 'Busca por nome da família/responsável, nome da mãe, endereço, observações ou paróquia.',
+                    ],
+                    [
+                        'name' => 'all',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'boolean', 'default' => false],
+                        'description' => 'Quando true, lista famílias de todas as paróquias. Permitido apenas para admin da diocese.',
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de famílias',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/Family'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Cadastra família',
+                'description' => 'Token da diocese deve informar parish_id. Token paroquial cadastra na própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreFamilyRequest'],
+                            'example' => [
+                                'parish_id' => 1,
+                                'address' => 'Rua das Flores, 123',
+                                'observations' => 'Recebe cesta básica mensal',
+                                'responsible' => [
+                                    'name' => 'Carla Silva',
+                                    'mother_name' => 'Ana Silva',
+                                    'relationship' => 'mae',
+                                    'age' => 34,
+                                    'registration_status' => 'ativo',
+                                    'registration_date' => '2026-05-22',
+                                    'personal_income' => 750.50,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Família criada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Family'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/families/{family}' => [
+            'patch' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Atualiza uma família',
+                'description' => 'Admins paroquiais só podem editar famílias da própria paróquia. Apenas admin da diocese pode alterar parish_id.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateFamilyRequest'],
+                            'example' => [
+                                'address' => 'Rua Nova, 456',
+                                'observations' => 'Cadastro atualizado',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Família atualizada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Family'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Exclui uma família',
+                'description' => 'Admins paroquiais só podem excluir famílias da própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Família excluída'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/families/{family}/assisted-family-members' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Lista familiares assistidos',
+                'description' => 'Lista os familiares assistidos cadastrados dentro de uma família.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de familiares assistidos',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Cadastra familiar assistido',
+                'description' => 'Cria um familiar assistido dentro de uma família do escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreAssistedFamilyMemberRequest'],
+                            'example' => [
+                                'name' => 'Julia Ferreira',
+                                'mother_name' => 'Ana Ferreira',
+                                'relationship' => 'filha',
+                                'age' => 12,
+                                'registration_status' => 'ativo',
+                                'registration_date' => '2026-05-22',
+                                'personal_income' => 750.50,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Familiar assistido criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/assisted-family-members/{assistedFamilyMember}' => [
+            'patch' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Atualiza familiar assistido',
+                'description' => 'Atualiza os dados cadastrais e renda do familiar assistido.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'assistedFamilyMember',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateAssistedFamilyMemberRequest'],
+                            'example' => [
+                                'relationship' => 'filho',
+                                'age' => 13,
+                                'registration_status' => 'inativo',
+                                'personal_income' => 900,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Familiar assistido atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Exclui familiar assistido',
+                'description' => 'Remove um familiar assistido do cadastro da família.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'assistedFamilyMember',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Familiar assistido excluído'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
         '/roles' => [
             'get' => [
                 'tags' => ['Usuários'],
@@ -779,6 +1087,54 @@ return [
                     'active' => ['type' => 'boolean'],
                 ],
             ],
+            'StoreFamilyRequest' => [
+                'type' => 'object',
+                'required' => ['responsible'],
+                'properties' => [
+                    'parish_id' => ['type' => 'integer', 'description' => 'Obrigatório para token da diocese.'],
+                    'address' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                    'observations' => ['type' => 'string', 'nullable' => true],
+                    'responsible' => [
+                        'allOf' => [
+                            ['$ref' => '#/components/schemas/StoreAssistedFamilyMemberRequest'],
+                        ],
+                        'description' => 'O nome da família é preenchido automaticamente com responsible.name.',
+                    ],
+                ],
+            ],
+            'UpdateFamilyRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'parish_id' => ['type' => 'integer', 'description' => 'Permitido apenas para token da diocese.'],
+                    'address' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                    'observations' => ['type' => 'string', 'nullable' => true],
+                ],
+            ],
+            'StoreAssistedFamilyMemberRequest' => [
+                'type' => 'object',
+                'required' => ['name', 'mother_name', 'relationship', 'age', 'registration_status', 'registration_date', 'personal_income'],
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'mother_name' => ['type' => 'string', 'maxLength' => 255],
+                    'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
+                    'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
+                    'registration_status' => ['type' => 'string', 'maxLength' => 100],
+                    'registration_date' => ['type' => 'string', 'format' => 'date'],
+                    'personal_income' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                ],
+            ],
+            'UpdateAssistedFamilyMemberRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 'maxLength' => 255],
+                    'mother_name' => ['type' => 'string', 'maxLength' => 255],
+                    'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
+                    'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
+                    'registration_status' => ['type' => 'string', 'maxLength' => 100],
+                    'registration_date' => ['type' => 'string', 'format' => 'date'],
+                    'personal_income' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                ],
+            ],
             'StoreUserRequest' => [
                 'type' => 'object',
                 'required' => ['name', 'email', 'password'],
@@ -842,6 +1198,38 @@ return [
                     'name' => ['type' => 'string'],
                     'birth_date' => ['type' => 'string', 'format' => 'date'],
                     'cpf' => ['type' => 'string'],
+                ],
+            ],
+            'Family' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'address' => ['type' => 'string', 'nullable' => true],
+                    'observations' => ['type' => 'string', 'nullable' => true],
+                    'parish' => ['$ref' => '#/components/schemas/Parish'],
+                    'responsible' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                    'assisted_family_members' => [
+                        'type' => 'array',
+                        'items' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                    ],
+                ],
+            ],
+            'AssistedFamilyMember' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_id' => ['type' => 'integer'],
+                    'family_id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'mother_name' => ['type' => 'string'],
+                    'relationship' => ['type' => 'string'],
+                    'age' => ['type' => 'integer'],
+                    'registration_status' => ['type' => 'string'],
+                    'registration_date' => ['type' => 'string', 'format' => 'date'],
+                    'personal_income' => ['type' => 'number', 'format' => 'float'],
+                    'is_responsible' => ['type' => 'boolean'],
                 ],
             ],
             'UserParish' => [

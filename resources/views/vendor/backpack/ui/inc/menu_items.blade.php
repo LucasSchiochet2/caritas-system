@@ -4,3 +4,5 @@
 <li class="nav-item"><a class="nav-link" href="{{ backpack_url('bazaar-customer') }}"><i class="la la-address-card nav-icon"></i> Clientes do bazar</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ backpack_url('parish') }}"><i class="la la-church nav-icon"></i> Paróquias</a></li>
 <li class="nav-item"><a class="nav-link" href="{{ backpack_url('user') }}"><i class="la la-users nav-icon"></i> Usuários</a></li>
+
+<x-backpack::menu-item title="Families" icon="la la-question" :link="backpack_url('family')" />
