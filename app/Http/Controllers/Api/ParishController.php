@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parish;
+use App\Models\Cashbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -35,6 +36,12 @@ class ParishController extends Controller
             'name' => $data['name'],
             'cnpj' => $data['cnpj'] ?? null,
             'active' => $data['active'] ?? true,
+        ]);
+
+        Cashbox::query()->create([
+            'parish_id' => $parish->id,
+            'name' => 'Caixa Principal',
+            'balance' => 0,
         ]);
 
         return response()->json(['data' => $this->payload($parish)], 201);

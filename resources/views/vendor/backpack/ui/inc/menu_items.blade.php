@@ -6,3 +6,5 @@
 <li class="nav-item"><a class="nav-link" href="{{ backpack_url('user') }}"><i class="la la-users nav-icon"></i> Usuários</a></li>
 
 <x-backpack::menu-item title="Families" icon="la la-question" :link="backpack_url('family')" />
+<x-backpack::menu-item title="Cashboxes" icon="la la-question" :link="backpack_url('cashbox')" />
+<x-backpack::menu-item title="Logs cashboxes" icon="la la-question" :link="backpack_url('logs-cashbox')" />

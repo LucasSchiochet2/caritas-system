@@ -16,6 +16,7 @@ return [
     'tags' => [
         ['name' => 'Autenticação'],
         ['name' => 'Bazar'],
+        ['name' => 'Caixas'],
         ['name' => 'Paróquias'],
         ['name' => 'Famílias'],
         ['name' => 'Usuários'],
@@ -393,6 +394,186 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                     '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/cashboxes' => [
+            'get' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Lista caixas',
+                'description' => 'Requer token da diocese ou token de paróquia. Tokens de paróquia ficam restritos à própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de caixas',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/Cashbox'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Cria um caixa',
+                'description' => 'Requer token da diocese ou token de paróquia. Tokens de paróquia ficam restritos à própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreCashboxRequest'],
+                            'example' => [
+                                'name' => 'Caixa Principal',
+                                'balance' => 0,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Caixa criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Cashbox'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/cashboxes/{cashbox}' => [
+            'patch' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Atualiza um caixa ou registra movimentação',
+                'description' => 'Quando amount é enviado, movement_type define entrada ou saída e uma movimentação é registrada no histórico.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'cashbox',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateCashboxRequest'],
+                            'example' => [
+                                'name' => 'Caixa Principal',
+                                'amount' => 25.5,
+                                'movement_type' => 'in',
+                                'reason' => null,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Caixa atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Cashbox'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Exclui um caixa',
+                'description' => 'Requer token da diocese ou token de paróquia. Tokens de paróquia ficam restritos à própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'cashbox',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Caixa excluído'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/logs-cashboxes' => [
+            'get' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Lista histórico de movimentações dos caixas',
+                'description' => 'Requer token da diocese ou token de paróquia. Tokens de paróquia retornam apenas movimentações dos caixas da própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de movimentações',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/LogsCashbox'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/logs-cashboxes/{logsCashbox}' => [
+            'delete' => [
+                'tags' => ['Caixas'],
+                'summary' => 'Exclui uma movimentação do histórico',
+                'description' => 'Requer token da diocese ou token de paróquia. Tokens de paróquia ficam restritos à própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'logsCashbox',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Movimentação excluída'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -1070,6 +1251,26 @@ return [
                     'cpf' => ['type' => 'string', 'maxLength' => 14],
                 ],
             ],
+            'StoreCashboxRequest' => [
+                'type' => 'object',
+                'required' => ['name', 'balance'],
+                'properties' => [
+                    'parish_id' => ['type' => 'integer', 'description' => 'Obrigatório para token da diocese; omitido para token de paróquia.'],
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'balance' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                ],
+            ],
+            'UpdateCashboxRequest' => [
+                'type' => 'object',
+                'required' => ['name'],
+                'properties' => [
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'balance' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                    'amount' => ['type' => 'number', 'format' => 'float', 'minimum' => 0.01],
+                    'movement_type' => ['type' => 'string', 'enum' => ['in', 'out'], 'description' => 'Obrigatório quando amount for enviado.'],
+                    'reason' => ['type' => 'string', 'nullable' => true, 'maxLength' => 100, 'description' => 'Obrigatório para movement_type igual a out.'],
+                ],
+            ],
             'StoreParishRequest' => [
                 'type' => 'object',
                 'required' => ['name'],
@@ -1198,6 +1399,28 @@ return [
                     'name' => ['type' => 'string'],
                     'birth_date' => ['type' => 'string', 'format' => 'date'],
                     'cpf' => ['type' => 'string'],
+                ],
+            ],
+            'Cashbox' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'balance' => ['type' => 'number', 'format' => 'float'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                ],
+            ],
+            'LogsCashbox' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'cashbox_id' => ['type' => 'integer'],
+                    'user_id' => ['type' => 'integer'],
+                    'movement_type' => ['type' => 'string', 'enum' => ['in', 'out', 'update']],
+                    'reason' => ['type' => 'string', 'nullable' => true],
+                    'amount' => ['type' => 'number', 'format' => 'float'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                 ],
             ],
             'Family' => [
