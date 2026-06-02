@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AssistedFamilyMember;
 use App\Models\Family;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class FamilyController extends Controller
 {
+    private const SIMILARITY_THRESHOLD = 0.7;
+
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
@@ -34,20 +37,7 @@ class FamilyController extends Controller
             ->with(['parish:id,name,slug,active', 'responsible', 'assistedFamilyMembers'])
             ->where('is_active', true)
             ->when(! $listAllParishes, fn ($query) => $query->whereIn('parish_id', $ownParishIds))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('address', 'like', '%'.$search.'%')
-                        ->orWhere('observations', 'like', '%'.$search.'%')
-                        ->orWhereHas('parish', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
-                        ->orWhereHas('assistedFamilyMembers', function ($query) use ($search) {
-                            $query
-                                ->where('name', 'like', '%'.$search.'%')
-                                ->orWhere('mother_name', 'like', '%'.$search.'%');
-                        });
-                });
-            })
+            ->when($search !== '', fn (Builder $query) => $this->applySearch($query, $search))
             ->orderBy('name')
             ->get()
             ->map(fn (Family $family) => $this->payload($family));
@@ -78,20 +68,7 @@ class FamilyController extends Controller
             ->with(['parish:id,name,slug,active', 'responsible', 'assistedFamilyMembers'])
             ->where('is_active', false)
             ->when(! $listAllParishes, fn ($query) => $query->whereIn('parish_id', $ownParishIds))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query
-                        ->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('address', 'like', '%'.$search.'%')
-                        ->orWhere('observations', 'like', '%'.$search.'%')
-                        ->orWhereHas('parish', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
-                        ->orWhereHas('assistedFamilyMembers', function ($query) use ($search) {
-                            $query
-                                ->where('name', 'like', '%'.$search.'%')
-                                ->orWhere('mother_name', 'like', '%'.$search.'%');
-                        });
-                });
-            })
+            ->when($search !== '', fn (Builder $query) => $this->applySearch($query, $search))
             ->orderBy('name')
             ->get()
             ->map(fn (Family $family) => $this->payload($family));
@@ -192,6 +169,7 @@ class FamilyController extends Controller
 
         return response()->json(null, 204);
     }
+
     public function activate(Request $request, Family $family): JsonResponse
     {
         $this->authorizeFamily($request, $family);
@@ -200,6 +178,51 @@ class FamilyController extends Controller
         $family->save();
 
         return response()->json(null, 204);
+    }
+
+    private function applySearch(Builder $query, string $search): void
+    {
+        $like = '%'.$search.'%';
+
+        $query->where(function (Builder $query) use ($search, $like) {
+            $query
+                ->where('name', 'like', $like)
+                ->orWhere('address', 'like', $like)
+                ->orWhere('observations', 'like', $like)
+                ->orWhereHas('parish', function (Builder $query) use ($search, $like) {
+                    $query->where('name', 'like', $like);
+                    $this->orWhereSimilarity($query, 'name', $search);
+                })
+                ->orWhereHas('assistedFamilyMembers', function (Builder $query) use ($search, $like) {
+                    $query
+                        ->where('name', 'like', $like)
+                        ->orWhere('mother_name', 'like', $like);
+
+                    $this->orWhereSimilarity($query, 'name', $search);
+                    $this->orWhereSimilarity($query, 'mother_name', $search);
+                });
+
+            $this->orWhereSimilarity($query, 'name', $search);
+            $this->orWhereSimilarity($query, 'address', $search);
+            $this->orWhereSimilarity($query, 'observations', $search);
+        });
+    }
+
+    private function orWhereSimilarity(Builder $query, string $column, string $search): void
+    {
+        if (! $this->usesPostgres()) {
+            return;
+        }
+
+        $query->orWhereRaw(
+            "similarity(coalesce({$column}, ''), ?) > ?",
+            [$search, self::SIMILARITY_THRESHOLD]
+        );
+    }
+
+    private function usesPostgres(): bool
+    {
+        return DB::connection()->getDriverName() === 'pgsql';
     }
 
     private function writableParishId(Request $request, ?int $requestedParishId): int
