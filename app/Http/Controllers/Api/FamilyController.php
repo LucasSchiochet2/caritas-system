@@ -32,6 +32,51 @@ class FamilyController extends Controller
 
         $families = Family::query()
             ->with(['parish:id,name,slug,active', 'responsible', 'assistedFamilyMembers'])
+            ->where('is_active', true)
+            ->when(! $listAllParishes, fn ($query) => $query->whereIn('parish_id', $ownParishIds))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('address', 'like', '%'.$search.'%')
+                        ->orWhere('observations', 'like', '%'.$search.'%')
+                        ->orWhereHas('parish', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
+                        ->orWhereHas('assistedFamilyMembers', function ($query) use ($search) {
+                            $query
+                                ->where('name', 'like', '%'.$search.'%')
+                                ->orWhere('mother_name', 'like', '%'.$search.'%');
+                        });
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Family $family) => $this->payload($family));
+
+        return response()->json(['data' => $families]);
+    }
+
+    public function inactivateFamilies(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $isDioceseScope = $this->isDioceseScope($request);
+        $listAllParishes = $request->boolean('all');
+        $search = trim((string) $request->query('search', ''));
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+        // abort_if($listAllParishes && ! $isDioceseScope, 403);
+
+        if ($parishScopeId !== null) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+
+        $ownParishIds = $parishScopeId !== null
+            ? [$parishScopeId]
+            : $actor->administeredParishes()->pluck('parishes.id')->all();
+
+        $families = Family::query()
+            ->with(['parish:id,name,slug,active', 'responsible', 'assistedFamilyMembers'])
+            ->where('is_active', false)
             ->when(! $listAllParishes, fn ($query) => $query->whereIn('parish_id', $ownParishIds))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
@@ -138,6 +183,25 @@ class FamilyController extends Controller
         return response()->json(null, 204);
     }
 
+    public function inactivate(Request $request, Family $family): JsonResponse
+    {
+        $this->authorizeFamily($request, $family);
+
+        $family->is_active = false;
+        $family->save();
+
+        return response()->json(null, 204);
+    }
+    public function activate(Request $request, Family $family): JsonResponse
+    {
+        $this->authorizeFamily($request, $family);
+
+        $family->is_active = true;
+        $family->save();
+
+        return response()->json(null, 204);
+    }
+
     private function writableParishId(Request $request, ?int $requestedParishId): int
     {
         if ($this->isDioceseScope($request)) {
@@ -197,6 +261,7 @@ class FamilyController extends Controller
             'name' => $family->name,
             'address' => $family->address,
             'observations' => $family->observations,
+            'is_active' => $family->is_active,
             'parish' => $family->relationLoaded('parish') && $family->parish
                 ? [
                     'id' => $family->parish->id,

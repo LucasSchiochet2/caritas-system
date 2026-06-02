@@ -186,6 +186,34 @@ it('lets diocese admins manage families from any parish', function () {
     $this->assertDatabaseMissing('families', ['id' => $otherFamily->id]);
 });
 
+it('inactivates families and hides them from listings', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create(['name' => 'Familia Ativa']);
+    $otherFamily = Family::factory()->for($otherParish)->create(['name' => 'Familia Fora']);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/families/'.$family->id.'/inactivate')
+        ->assertNoContent();
+
+    $this->assertDatabaseHas('families', [
+        'id' => $family->id,
+        'is_active' => false,
+    ]);
+
+    $this->withToken($token)
+        ->getJson('/api/families')
+        ->assertOk()
+        ->assertJsonMissing(['name' => 'Familia Ativa']);
+
+    $this->withToken($token)
+        ->patchJson('/api/families/'.$otherFamily->id.'/inactivate')
+        ->assertForbidden();
+});
+
 it('limits parish admins to families from their parish', function () {
     $parish = Parish::factory()->create();
     $otherParish = Parish::factory()->create();

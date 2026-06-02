@@ -794,6 +794,50 @@ return [
                 ],
             ],
         ],
+        '/inactive-families' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Lista famílias inativas',
+                'description' => 'Por padrão lista famílias inativas das próprias paróquias do token. Admin da diocese pode informar all=true para listar todas as paróquias.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'search',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'string'],
+                        'description' => 'Busca por nome da família/responsável, nome da mãe, endereço, observações ou paróquia.',
+                    ],
+                    [
+                        'name' => 'all',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'boolean', 'default' => false],
+                        'description' => 'Quando true, lista famílias de todas as paróquias. Permitido apenas para admin da diocese.',
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de famílias',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/Family'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
         '/families/{family}' => [
             'patch' => [
                 'tags' => ['Famílias'],
@@ -854,6 +898,48 @@ return [
                 ],
                 'responses' => [
                     '204' => ['description' => 'Família excluída'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/families/{family}/inactivate' => [
+            'patch' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Inativa uma família',
+                'description' => 'Admins paroquiais só podem inativar famílias da própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Família inativada'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/families/{family}/activate' => [
+            'patch' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Ativa uma família',
+                'description' => 'Admins paroquiais só podem ativar famílias da própria paróquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Família ativada'],
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
@@ -1431,6 +1517,7 @@ return [
                     'name' => ['type' => 'string'],
                     'address' => ['type' => 'string', 'nullable' => true],
                     'observations' => ['type' => 'string', 'nullable' => true],
+                    'is_active' => ['type' => 'boolean'],
                     'parish' => ['$ref' => '#/components/schemas/Parish'],
                     'responsible' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
                     'assisted_family_members' => [

@@ -23,6 +23,14 @@ class Family extends Model
         'name',
         'address',
         'observations',
+        'is_active',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function parish(): BelongsTo
