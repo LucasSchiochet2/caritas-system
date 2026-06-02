@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class FamilyController extends Controller
 {
-    private const SIMILARITY_THRESHOLD = 0.7;
+    private const SIMILARITY_THRESHOLD = 0.6;
 
     public function index(Request $request): JsonResponse
     {
