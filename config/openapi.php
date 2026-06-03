@@ -639,6 +639,31 @@ return [
                 ],
             ],
         ],
+        '/inactive-parishes' => [
+            'get' => [
+                'tags' => ['Paróquias'],
+                'security' => [['bearerAuth' => []]],
+                'summary' => 'Lista paróquias inativas',
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de paróquias inativas',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/Parish'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
         '/parishes/{parish}' => [
             'patch' => [
                 'tags' => ['Paróquias'],
@@ -702,6 +727,51 @@ return [
                     '204' => ['description' => 'Paróquia excluída'],
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/parishes/{parish}/activate' => [
+            'patch' => [
+                'tags' => ['Paróquias'],
+                'summary' => 'Ativa uma paróquia',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parish',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateParishRequest'],
+                            'example' => [
+                                'active' => true,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Paróquia ativada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Parish'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
                 ],
             ],
         ],

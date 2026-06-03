@@ -70,4 +70,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('parishes', [ParishController::class, 'store']);
     Route::patch('parishes/{parish}', [ParishController::class, 'update']);
     Route::delete('parishes/{parish}', [ParishController::class, 'destroy']);
+    Route::patch('parishes/{parish}/activate', [ParishController::class, 'activate']);
+    Route::get('inactive-parishes', [ParishController::class, 'inactive_parishes']);
 });

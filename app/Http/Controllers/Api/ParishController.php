@@ -21,6 +21,17 @@ class ParishController extends Controller
 
         return response()->json(['data' => $parishes]);
     }
+    public function inactive_parishes(): JsonResponse
+    {
+        $this->authorizeDioceseAdmin(request());
+        $parishes = Parish::query()
+            ->where('active', false)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Parish $parish) => $this->payload($parish));
+
+        return response()->json(['data' => $parishes]);
+    }
 
     public function store(Request $request): JsonResponse
     {
@@ -70,6 +81,16 @@ class ParishController extends Controller
         $parish->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function activate(Request $request, Parish $parish): JsonResponse
+    {
+        $this->authorizeDioceseAdmin($request);
+
+        $parish->active = true;
+        $parish->save();
+
+        return response()->json(['data' => $this->payload($parish)]);
     }
 
     private function authorizeDioceseAdmin(Request $request): void
