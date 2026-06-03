@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('families', [FamilyController::class, 'index']);
     Route::get('inactive-families', [FamilyController::class, 'inactivateFamilies']);
     Route::post('families', [FamilyController::class, 'store']);
+    Route::get('families/{family}/financial-records', [LogsCashboxController::class, 'indexByFamily']);
     Route::get('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'index']);
     Route::post('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'store']);
     Route::patch('families/{family}', [FamilyController::class, 'update']);

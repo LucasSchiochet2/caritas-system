@@ -337,6 +337,56 @@ it('records cashbox movements with a family from the same parish', function () {
         ->assertJsonPath('data.0.family_id', $family->id);
 });
 
+it('lists financial records for a specific family', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $otherCashbox = Cashbox::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Caixa Outra Paroquia',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $ownLog = LogsCashbox::query()->create([
+        'cashbox_id' => $cashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $family->id,
+        'movement_type' => 'out',
+        'reason' => 'Cesta basica',
+        'amount' => 20,
+    ]);
+    LogsCashbox::query()->create([
+        'cashbox_id' => $otherCashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $otherFamily->id,
+        'movement_type' => 'out',
+        'reason' => 'Registro bloqueado',
+        'amount' => 30,
+    ]);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/financial-records')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $ownLog->id)
+        ->assertJsonPath('data.0.family_id', $family->id)
+        ->assertJsonPath('data.0.cashbox.name', 'Caixa Principal')
+        ->assertJsonPath('data.0.user.id', $admin->id);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$otherFamily->id.'/financial-records')
+        ->assertForbidden();
+});
+
 it('validates cashbox movement family id against the cashbox parish', function () {
     $parish = Parish::factory()->create();
     $otherParish = Parish::factory()->create();

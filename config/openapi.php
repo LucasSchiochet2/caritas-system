@@ -1018,6 +1018,42 @@ return [
                 ],
             ],
         ],
+        '/families/{family}/financial-records' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Lista registros financeiros da familia',
+                'description' => 'Lista os registros financeiros vinculados a uma familia do escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de registros financeiros da familia',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/LogsCashbox'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
         '/families/{family}/assisted-family-members' => [
             'get' => [
                 'tags' => ['Famílias'],
@@ -1606,6 +1642,24 @@ return [
                     'reason' => ['type' => 'string', 'nullable' => true],
                     'amount' => ['type' => 'number', 'format' => 'float'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'cashbox' => [
+                        'type' => 'object',
+                        'nullable' => true,
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'parish_id' => ['type' => 'integer'],
+                            'name' => ['type' => 'string'],
+                        ],
+                    ],
+                    'user' => [
+                        'type' => 'object',
+                        'nullable' => true,
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'name' => ['type' => 'string'],
+                            'email' => ['type' => 'string', 'format' => 'email'],
+                        ],
+                    ],
                 ],
             ],
             'Family' => [
