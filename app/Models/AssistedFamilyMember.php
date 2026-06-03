@@ -19,6 +19,8 @@ class AssistedFamilyMember extends Model
         'parish_id',
         'family_id',
         'name',
+        'cpf',
+        'birth_date',
         'mother_name',
         'relationship',
         'age',
@@ -37,6 +39,7 @@ class AssistedFamilyMember extends Model
     {
         return [
             'age' => 'integer',
+            'birth_date' => 'date:Y-m-d',
             'registration_date' => 'date',
             'personal_income' => 'decimal:2',
             'is_responsible' => 'boolean',

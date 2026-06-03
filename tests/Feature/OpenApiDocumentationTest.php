@@ -55,6 +55,7 @@ it('serves the openapi json document', function () {
         ->assertJsonPath('paths./families.post.summary', 'Cadastra família')
         ->assertJsonPath('paths./families/{family}/inactivate.patch.summary', 'Inativa uma família')
         ->assertJsonPath('paths./families/{family}/assisted-family-members.post.summary', 'Cadastra familiar assistido')
+        ->assertJsonPath('paths./assisted-family-members/search-by-cpf.get.summary', 'Busca familiar assistido por CPF')
         ->assertJsonPath('paths./roles.get.summary', 'Lista perfis disponíveis')
         ->assertJsonPath('tags.0.name', 'Autenticação')
         ->assertJsonPath('components.securitySchemes.bearerAuth.scheme', 'bearer');

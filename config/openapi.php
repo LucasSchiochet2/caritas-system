@@ -763,6 +763,8 @@ return [
                                 'observations' => 'Recebe cesta básica mensal',
                                 'responsible' => [
                                     'name' => 'Carla Silva',
+                                    'cpf' => '222.333.444-55',
+                                    'birth_date' => '1992-03-14',
                                     'mother_name' => 'Ana Silva',
                                     'relationship' => 'mae',
                                     'age' => 34,
@@ -1000,6 +1002,8 @@ return [
                             'schema' => ['$ref' => '#/components/schemas/StoreAssistedFamilyMemberRequest'],
                             'example' => [
                                 'name' => 'Julia Ferreira',
+                                'cpf' => '111.222.333-44',
+                                'birth_date' => '2014-05-20',
                                 'mother_name' => 'Ana Ferreira',
                                 'relationship' => 'filha',
                                 'age' => 12,
@@ -1030,6 +1034,41 @@ return [
                 ],
             ],
         ],
+        '/assisted-family-members/search-by-cpf' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Busca familiar assistido por CPF',
+                'description' => 'Retorna o familiar assistido pelo CPF informado. Aceita CPF formatado ou apenas dígitos.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'cpf',
+                        'in' => 'query',
+                        'required' => true,
+                        'schema' => ['type' => 'string', 'maxLength' => 14],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Familiar assistido encontrado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '404' => ['description' => 'Familiar assistido não encontrado'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
         '/assisted-family-members/{assistedFamilyMember}' => [
             'patch' => [
                 'tags' => ['Famílias'],
@@ -1050,6 +1089,8 @@ return [
                         'application/json' => [
                             'schema' => ['$ref' => '#/components/schemas/UpdateAssistedFamilyMemberRequest'],
                             'example' => [
+                                'cpf' => '111.222.333-55',
+                                'birth_date' => '2013-05-20',
                                 'relationship' => 'filho',
                                 'age' => 13,
                                 'registration_status' => 'inativo',
@@ -1075,25 +1116,6 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                     '422' => ['$ref' => '#/components/responses/ValidationError'],
-                ],
-            ],
-            'delete' => [
-                'tags' => ['Famílias'],
-                'summary' => 'Exclui familiar assistido',
-                'description' => 'Remove um familiar assistido do cadastro da família.',
-                'security' => [['bearerAuth' => []]],
-                'parameters' => [
-                    [
-                        'name' => 'assistedFamilyMember',
-                        'in' => 'path',
-                        'required' => true,
-                        'schema' => ['type' => 'integer'],
-                    ],
-                ],
-                'responses' => [
-                    '204' => ['description' => 'Familiar assistido excluído'],
-                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
-                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -1402,6 +1424,8 @@ return [
                 'required' => ['name', 'mother_name', 'relationship', 'age', 'registration_status', 'registration_date', 'personal_income'],
                 'properties' => [
                     'name' => ['type' => 'string', 'maxLength' => 255],
+                    'cpf' => ['type' => 'string', 'nullable' => true, 'maxLength' => 14],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string', 'maxLength' => 255],
                     'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
                     'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
@@ -1414,6 +1438,8 @@ return [
                 'type' => 'object',
                 'properties' => [
                     'name' => ['type' => 'string', 'maxLength' => 255],
+                    'cpf' => ['type' => 'string', 'nullable' => true, 'maxLength' => 14],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string', 'maxLength' => 255],
                     'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
                     'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
@@ -1533,6 +1559,8 @@ return [
                     'parish_id' => ['type' => 'integer'],
                     'family_id' => ['type' => 'integer'],
                     'name' => ['type' => 'string'],
+                    'cpf' => ['type' => 'string', 'nullable' => true],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string'],
                     'relationship' => ['type' => 'string'],
                     'age' => ['type' => 'integer'],

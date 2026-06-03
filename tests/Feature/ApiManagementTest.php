@@ -115,6 +115,8 @@ it('lets diocese admins manage families from any parish', function () {
             'observations' => 'Recebe cesta basica mensal',
             'responsible' => [
                 'name' => 'Carla Silva',
+                'cpf' => '222.333.444-55',
+                'birth_date' => '1992-03-14',
                 'mother_name' => 'Ana Silva',
                 'relationship' => 'mae',
                 'age' => 34,
@@ -128,6 +130,8 @@ it('lets diocese admins manage families from any parish', function () {
         ->assertJsonPath('data.parish_id', $parish->id)
         ->assertJsonPath('data.parish.name', 'Paroquia Sao Pedro')
         ->assertJsonPath('data.responsible.name', 'Carla Silva')
+        ->assertJsonPath('data.responsible.cpf', '222.333.444-55')
+        ->assertJsonPath('data.responsible.birth_date', '1992-03-14')
         ->assertJsonPath('data.responsible.mother_name', 'Ana Silva')
         ->assertJsonPath('data.responsible.relationship', 'mae')
         ->assertJsonPath('data.responsible.age', 34)
@@ -173,6 +177,8 @@ it('lets diocese admins manage families from any parish', function () {
         'family_id' => $family->id,
         'parish_id' => $otherParish->id,
         'name' => 'Carla Silva',
+        'cpf' => '222.333.444-55',
+        'birth_date' => '1992-03-14',
         'mother_name' => 'Ana Silva',
         'relationship' => 'mae',
         'age' => 34,
@@ -332,6 +338,8 @@ it('lets admins manage assisted family members inside families', function () {
     $this->withToken($token)
         ->postJson('/api/families/'.$family->id.'/assisted-family-members', [
             'name' => 'Julia Ferreira',
+            'cpf' => '111.222.333-44',
+            'birth_date' => '2014-05-20',
             'mother_name' => 'Ana Ferreira',
             'relationship' => 'filha',
             'age' => 12,
@@ -343,6 +351,8 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertJsonPath('data.family_id', $family->id)
         ->assertJsonPath('data.parish_id', $family->parish_id)
         ->assertJsonPath('data.name', 'Julia Ferreira')
+        ->assertJsonPath('data.cpf', '111.222.333-44')
+        ->assertJsonPath('data.birth_date', '2014-05-20')
         ->assertJsonPath('data.mother_name', 'Ana Ferreira')
         ->assertJsonPath('data.relationship', 'filha')
         ->assertJsonPath('data.age', 12)
@@ -362,8 +372,17 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertJsonPath('data.0.assisted_family_members.0.mother_name', 'Ana Ferreira');
 
     $this->withToken($token)
+        ->getJson('/api/assisted-family-members/search-by-cpf?cpf=11122233344')
+        ->assertOk()
+        ->assertJsonPath('data.id', $member->id)
+        ->assertJsonPath('data.cpf', '111.222.333-44')
+        ->assertJsonPath('data.birth_date', '2014-05-20');
+
+    $this->withToken($token)
         ->patchJson('/api/assisted-family-members/'.$member->id, [
             'name' => 'Julio Ferreira',
+            'cpf' => '111.222.333-55',
+            'birth_date' => '2013-05-20',
             'relationship' => 'filho',
             'age' => 13,
             'registration_status' => 'inativo',
@@ -371,6 +390,8 @@ it('lets admins manage assisted family members inside families', function () {
         ])
         ->assertOk()
         ->assertJsonPath('data.name', 'Julio Ferreira')
+        ->assertJsonPath('data.cpf', '111.222.333-55')
+        ->assertJsonPath('data.birth_date', '2013-05-20')
         ->assertJsonPath('data.relationship', 'filho')
         ->assertJsonPath('data.age', 13)
         ->assertJsonPath('data.registration_status', 'inativo')
@@ -381,6 +402,8 @@ it('lets admins manage assisted family members inside families', function () {
         'family_id' => $family->id,
         'parish_id' => $family->parish_id,
         'name' => 'Julio Ferreira',
+        'cpf' => '111.222.333-55',
+        'birth_date' => '2013-05-20',
         'relationship' => 'filho',
         'age' => 13,
         'registration_status' => 'inativo',
@@ -432,6 +455,7 @@ it('limits parish admins to assisted members from their parish families', functi
     $otherFamily = Family::factory()->for($otherParish)->create();
     $otherMember = AssistedFamilyMember::factory()->for($otherFamily, 'family')->create([
         'parish_id' => $otherParish->id,
+        'cpf' => '333.444.555-66',
         'mother_name' => 'Maria Bloqueada',
     ]);
     $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
@@ -458,6 +482,10 @@ it('limits parish admins to assisted members from their parish families', functi
         ->patchJson('/api/assisted-family-members/'.$otherMember->id, [
             'registration_status' => 'ativo',
         ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->getJson('/api/assisted-family-members/search-by-cpf?cpf=333.444.555-66')
         ->assertForbidden();
 });
 

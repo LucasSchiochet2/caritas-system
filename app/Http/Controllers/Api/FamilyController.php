@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class FamilyController extends Controller
 {
@@ -86,6 +87,8 @@ class FamilyController extends Controller
             'observations' => ['nullable', 'string'],
             'responsible' => ['required', 'array'],
             'responsible.name' => ['required', 'string', 'max:255'],
+            'responsible.cpf' => ['nullable', 'string', 'max:14', Rule::unique('assisted_family_members', 'cpf')],
+            'responsible.birth_date' => ['nullable', 'date', 'before_or_equal:today'],
             'responsible.mother_name' => ['required', 'string', 'max:255'],
             'responsible.relationship' => ['required', 'string', 'max:50'],
             'responsible.age' => ['required', 'integer', 'min:0', 'max:130'],
@@ -107,6 +110,8 @@ class FamilyController extends Controller
             $family->assistedFamilyMembers()->create([
                 'parish_id' => $parishId,
                 'name' => $data['responsible']['name'],
+                'cpf' => $data['responsible']['cpf'] ?? null,
+                'birth_date' => $data['responsible']['birth_date'] ?? null,
                 'mother_name' => $data['responsible']['mother_name'],
                 'relationship' => $data['responsible']['relationship'],
                 'age' => $data['responsible']['age'],
@@ -314,6 +319,8 @@ class FamilyController extends Controller
             'parish_id' => $member->parish_id,
             'family_id' => $member->family_id,
             'name' => $member->name,
+            'cpf' => $member->cpf,
+            'birth_date' => $member->birth_date?->toDateString(),
             'mother_name' => $member->mother_name,
             'relationship' => $member->relationship,
             'age' => $member->age,

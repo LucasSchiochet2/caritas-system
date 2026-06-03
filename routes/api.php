@@ -53,9 +53,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('families/{family}', [FamilyController::class, 'update']);
     Route::patch('families/{family}/inactivate', [FamilyController::class, 'inactivate']);
     Route::patch('families/{family}/activate', [FamilyController::class, 'activate']);
-    Route::delete('families/{family}', [FamilyController::class, 'destroy']);
+    // Route::delete('families/{family}', [FamilyController::class, 'destroy']);
 
     // --- Assisted Family Members ---
+    Route::get('assisted-family-members/search-by-cpf', [AssistedFamilyMemberController::class, 'searchByCpf']);
     Route::patch('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'update']);
     Route::delete('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'destroy']);
 
