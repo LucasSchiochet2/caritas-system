@@ -70,6 +70,7 @@ class LogsCashboxController extends Controller
             'id' => $item->id,
             'cashbox_id' => $item->cashbox_id,
             'user_id' => $item->user_id,
+            'family_id' => $item->family_id,
             'movement_type' => $item->movement_type,
             'reason' => $item->reason,
             'amount' => $item->amount,

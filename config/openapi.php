@@ -482,6 +482,7 @@ return [
                             'schema' => ['$ref' => '#/components/schemas/UpdateCashboxRequest'],
                             'example' => [
                                 'name' => 'Caixa Principal',
+                                'family_id' => 1,
                                 'amount' => 25.5,
                                 'movement_type' => 'in',
                                 'reason' => null,
@@ -1373,6 +1374,7 @@ return [
                 'required' => ['name'],
                 'properties' => [
                     'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'family_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'Família vinculada à movimentação. Deve pertencer à mesma paróquia do caixa.'],
                     'balance' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
                     'amount' => ['type' => 'number', 'format' => 'float', 'minimum' => 0.01],
                     'movement_type' => ['type' => 'string', 'enum' => ['in', 'out'], 'description' => 'Obrigatório quando amount for enviado.'],
@@ -1529,6 +1531,7 @@ return [
                     'id' => ['type' => 'integer'],
                     'cashbox_id' => ['type' => 'integer'],
                     'user_id' => ['type' => 'integer'],
+                    'family_id' => ['type' => 'integer', 'nullable' => true],
                     'movement_type' => ['type' => 'string', 'enum' => ['in', 'out', 'update']],
                     'reason' => ['type' => 'string', 'nullable' => true],
                     'amount' => ['type' => 'number', 'format' => 'float'],

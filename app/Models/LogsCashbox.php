@@ -11,10 +11,15 @@ class LogsCashbox extends Model
     protected $fillable = [
         'cashbox_id',
         'user_id',
+        'family_id',
         'movement_type',
         'reason',
         'amount',
     ];
+    public function family()
+    {
+        return $this->belongsTo(Family::class);
+    }
 
     public function cashbox()
     {

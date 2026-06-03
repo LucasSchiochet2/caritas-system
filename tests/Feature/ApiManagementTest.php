@@ -4,7 +4,9 @@ use App\Enums\ParishRole;
 use App\Models\AssistedFamilyMember;
 use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
+use App\Models\Cashbox;
 use App\Models\Family;
+use App\Models\LogsCashbox;
 use App\Models\Parish;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -293,6 +295,82 @@ it('limits parish admins to families from their parish', function () {
             ],
         ])
         ->assertForbidden();
+});
+
+it('records cashbox movements with a family from the same parish', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => $family->id,
+            'amount' => 20,
+            'movement_type' => 'out',
+            'reason' => 'Cesta basica',
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('logs_cashboxes', [
+        'cashbox_id' => $cashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $family->id,
+        'movement_type' => 'out',
+        'reason' => 'Cesta basica',
+        'amount' => 20,
+    ]);
+
+    $log = LogsCashbox::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/logs-cashboxes')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $log->id)
+        ->assertJsonPath('data.0.family_id', $family->id);
+});
+
+it('validates cashbox movement family id against the cashbox parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => $otherFamily->id,
+            'amount' => 20,
+            'movement_type' => 'in',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['family_id']);
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => 999999,
+            'amount' => 20,
+            'movement_type' => 'in',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['family_id']);
+
+    $this->assertDatabaseCount('logs_cashboxes', 0);
 });
 
 it('requires a responsible assisted member when creating a family', function () {
