@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BazaarCustomerController;
 use App\Http\Controllers\Api\BazaarItemController;
 use App\Http\Controllers\Api\FamilyController;
+use App\Http\Controllers\Api\HomeVisitController;
 use App\Http\Controllers\Api\ParishController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -60,6 +61,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('assisted-family-members/search-by-cpf', [AssistedFamilyMemberController::class, 'searchByCpf']);
     Route::patch('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'update']);
     Route::delete('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'destroy']);
+
+    // --- Home Visits ---
+    Route::get('home-visits', [HomeVisitController::class, 'index']);
+    Route::get('home-visits/history', [HomeVisitController::class, 'history']);
+    Route::get('families/{family}/home-visits', [HomeVisitController::class, 'indexByFamily']);
+    Route::post('families/{family}/home-visits', [HomeVisitController::class, 'store']);
+    Route::patch('home-visits/{homeVisit}', [HomeVisitController::class, 'update']);
+    Route::delete('home-visits/{homeVisit}', [HomeVisitController::class, 'destroy']);
+    Route::patch('home-visits/{homeVisit}/reschedule', [HomeVisitController::class, 'reschedule']);
+    Route::patch('home-visits/{homeVisit}/visit-record', [HomeVisitController::class, 'visit_record']);
 
     // --- Users ---
     Route::get('users', [UserController::class, 'index']);

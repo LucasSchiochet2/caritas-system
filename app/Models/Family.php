@@ -52,4 +52,9 @@ class Family extends Model
     {
         return $this->hasMany(LogsCashbox::class);
     }
+
+    public function homeVisits(): HasMany
+    {
+        return $this->hasMany(HomeVisit::class);
+    }
 }

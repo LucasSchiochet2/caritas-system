@@ -8,3 +8,4 @@
 <x-backpack::menu-item title="Families" icon="la la-question" :link="backpack_url('family')" />
 <x-backpack::menu-item title="Cashboxes" icon="la la-question" :link="backpack_url('cashbox')" />
 <x-backpack::menu-item title="Logs cashboxes" icon="la la-question" :link="backpack_url('logs-cashbox')" />
+<x-backpack::menu-item title="Home visits" icon="la la-question" :link="backpack_url('home-visit')" />

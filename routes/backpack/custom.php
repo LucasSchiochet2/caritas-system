@@ -49,6 +49,7 @@ Route::group([
     Route::crud('family', 'FamilyCrudController');
     Route::crud('cashbox', 'CashboxCrudController');
     Route::crud('logs-cashbox', 'LogsCashboxCrudController');
+    Route::crud('home-visit', 'HomeVisitCrudController');
 }); // this should be the absolute last line of this file
 
 /**

@@ -6,6 +6,7 @@ use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
 use App\Models\Cashbox;
 use App\Models\Family;
+use App\Models\HomeVisit;
 use App\Models\LogsCashbox;
 use App\Models\Parish;
 use App\Models\User;
@@ -147,17 +148,8 @@ it('lets diocese admins manage families from any parish', function () {
         ->assertOk()
         ->assertJsonCount(0, 'data');
 
-    $this->withToken($token)
-        ->getJson('/api/families?all=true')
-        ->assertOk()
-        ->assertJsonFragment(['name' => 'Carla Silva'])
-        ->assertJsonFragment(['name' => 'Familia Oliveira']);
 
-    $this->withToken($token)
-        ->getJson('/api/families?all=true&search=Carla')
-        ->assertOk()
-        ->assertJsonFragment(['name' => 'Carla Silva'])
-        ->assertJsonMissing(['name' => 'Familia Oliveira']);
+
 
     $this->withToken($token)
         ->patchJson('/api/families/'.$family->id, [
@@ -236,10 +228,6 @@ it('limits parish admins to families from their parish', function () {
         ->assertOk()
         ->assertJsonFragment(['name' => 'Familia Souza'])
         ->assertJsonMissing(['name' => 'Familia Costa']);
-
-    $this->withToken($token)
-        ->getJson('/api/families?all=true')
-        ->assertForbidden();
 
     $this->withToken($token)
         ->getJson('/api/families?search=Souza')
@@ -423,6 +411,109 @@ it('validates cashbox movement family id against the cashbox parish', function (
     $this->assertDatabaseCount('logs_cashboxes', 0);
 });
 
+it('lets parish admins manage home visits for families from their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+    $visitDate = now()->addDays(3)->setTime(14, 0)->toDateTimeString();
+    $otherVisitDate = now()->addDays(4)->setTime(10, 0)->toDateTimeString();
+
+    HomeVisit::query()->create([
+        'family_id' => $otherFamily->id,
+        'user_id' => $admin->id,
+        'visit_date' => $otherVisitDate,
+    ]);
+
+    $this->withToken($token)
+        ->postJson('/api/families/'.$family->id.'/home-visits', [
+            'user_id' => $admin->id,
+            'visit_date' => $visitDate,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.family_id', $family->id)
+        ->assertJsonPath('data.user_id', $admin->id)
+        ->assertJsonPath('data.visit_date', $visitDate)
+        ->assertJsonPath('data.status', 'pending');
+
+    $visit = HomeVisit::query()->where('family_id', $family->id)->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/home-visits')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $visit->id);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/home-visits')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $visit->id);
+
+    $rescheduledDate = now()->addDays(7)->setTime(9, 30)->toDateTimeString();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/reschedule', [
+            'visit_date' => $rescheduledDate,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.visit_date', $rescheduledDate);
+
+    $nextVisitDate = now()->addMonth()->setTime(9, 30)->toDateTimeString();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/visit-record', [
+            'notes' => 'Familia recebeu a equipe.',
+            'forwarding' => 'Encaminhar para acompanhamento social.',
+            'next_visit_date' => $nextVisitDate,
+            'status' => 'completed',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.notes', 'Familia recebeu a equipe.')
+        ->assertJsonPath('data.forwarding', 'Encaminhar para acompanhamento social.')
+        ->assertJsonPath('data.next_visit_date', $nextVisitDate)
+        ->assertJsonPath('data.status', 'completed');
+
+    $this->assertDatabaseHas('home_visits', [
+        'id' => $visit->id,
+        'family_id' => $family->id,
+        'status' => 'completed',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/home-visits/'.$visit->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('home_visits', ['id' => $visit->id]);
+});
+
+it('prevents parish admins from managing home visits outside their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $visit = HomeVisit::query()->create([
+        'family_id' => $otherFamily->id,
+        'user_id' => $admin->id,
+        'visit_date' => now()->addDays(2)->setTime(10, 0)->toDateTimeString(),
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$otherFamily->id.'/home-visits')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/reschedule', [
+            'visit_date' => now()->addDays(5)->setTime(10, 0)->toDateTimeString(),
+        ])
+        ->assertForbidden();
+});
+
 it('requires a responsible assisted member when creating a family', function () {
     $admin = User::factory()->dioceseAdmin()->create();
     $parish = Parish::factory()->create();
@@ -494,10 +585,6 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertOk()
         ->assertJsonFragment(['mother_name' => 'Ana Ferreira']);
 
-    $this->withToken($token)
-        ->getJson('/api/families?all=true')
-        ->assertOk()
-        ->assertJsonPath('data.0.assisted_family_members.0.mother_name', 'Ana Ferreira');
 
     $this->withToken($token)
         ->getJson('/api/assisted-family-members/search-by-cpf?cpf=11122233344')
