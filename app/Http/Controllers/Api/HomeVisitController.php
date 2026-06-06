@@ -18,6 +18,7 @@ class HomeVisitController extends Controller
             ->when($parishScopeId !== null, function ($query) use ($parishScopeId) {
                 $query
                     ->whereHas('family', fn ($familyQuery) => $familyQuery->where('parish_id', $parishScopeId))
+                    ->where('status', '!=', 'cancelled')
                     ->where('visit_date', '>=', now()->subMonths(2));
             })
             ->orderBy('visit_date')
@@ -102,6 +103,18 @@ class HomeVisitController extends Controller
             'visit_date' => ['required', 'date'],
         ]);
 
+        $homeVisit->update($data);
+
+        return response()->json(['data' => $this->payload($homeVisit)]);
+    }
+    public function cancel(Request $request, HomeVisit $homeVisit): JsonResponse
+    {
+        $this->authorizeHomeVisit($request, $homeVisit);
+
+        $data = $request->validate([
+            'status' => ['required', 'string', 'max:50'],
+        ]);
+        $data['status'] = 'cancelled';
         $homeVisit->update($data);
 
         return response()->json(['data' => $this->payload($homeVisit)]);

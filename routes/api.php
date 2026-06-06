@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('home-visits/{homeVisit}', [HomeVisitController::class, 'update']);
     Route::delete('home-visits/{homeVisit}', [HomeVisitController::class, 'destroy']);
     Route::patch('home-visits/{homeVisit}/reschedule', [HomeVisitController::class, 'reschedule']);
+    Route::patch('home-visits/{homeVisit}/cancel', [HomeVisitController::class, 'cancel']);
     Route::patch('home-visits/{homeVisit}/visit-record', [HomeVisitController::class, 'visit_record']);
 
     // --- Users ---

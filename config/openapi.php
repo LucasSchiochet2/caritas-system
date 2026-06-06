@@ -1304,6 +1304,51 @@ return [
                 ],
             ],
         ],
+        '/home-visits/{homeVisit}/cancel' => [
+            'patch' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Cancela visita domiciliar',
+                'description' => 'Marca a visita domiciliar como cancelada.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/CancelHomeVisitRequest'],
+                            'example' => [
+                                'status' => 'canceled',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Visita domiciliar cancelada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
         '/home-visits/{homeVisit}/visit-record' => [
             'patch' => [
                 'tags' => ['Visitas Domiciliares'],
@@ -1869,7 +1914,7 @@ return [
                     'notes' => ['type' => 'string', 'nullable' => true, 'maxLength' => 1500],
                     'forwarding' => ['type' => 'string', 'nullable' => true, 'maxLength' => 500],
                     'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
-                    'status' => ['type' => 'string', 'maxLength' => 50, 'example' => 'pending'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'maxLength' => 50, 'example' => 'pending'],
                 ],
             ],
             'RescheduleHomeVisitRequest' => [
@@ -1879,13 +1924,20 @@ return [
                     'visit_date' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
+            'CancelHomeVisitRequest' => [
+                'type' => 'object',
+                'required' => ['status'],
+                'properties' => [
+                    'status' => ['type' => 'string', 'enum' => ['canceled'], 'maxLength' => 50, 'example' => 'canceled'],
+                ],
+            ],
             'VisitRecordHomeVisitRequest' => [
                 'type' => 'object',
                 'properties' => [
                     'notes' => ['type' => 'string', 'nullable' => true, 'maxLength' => 1500],
                     'forwarding' => ['type' => 'string', 'nullable' => true, 'maxLength' => 500],
                     'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
-                    'status' => ['type' => 'string', 'maxLength' => 50, 'example' => 'completed'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'maxLength' => 50, 'example' => 'completed'],
                 ],
             ],
             'StoreUserRequest' => [
@@ -2004,7 +2056,7 @@ return [
                     'notes' => ['type' => 'string', 'nullable' => true],
                     'forwarding' => ['type' => 'string', 'nullable' => true],
                     'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
-                    'status' => ['type' => 'string', 'example' => 'pending'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'example' => 'pending'],
                 ],
             ],
             'Family' => [
