@@ -6,6 +6,7 @@ use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
 use App\Models\Family;
 use App\Models\Parish;
+use App\Models\ParishInventory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -99,6 +100,138 @@ it('lets diocese admins manage bazaar customers', function () {
         'birth_date' => '1988-05-21',
         'cpf' => '123.456.789-01',
     ]);
+});
+
+it('lets diocese admins manage parish inventories from any parish', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventories', [
+            'parish_id' => $parish->id,
+            'name' => 'Inventario Principal',
+            'description' => 'Itens cadastrados pela diocese',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Inventario Principal')
+        ->assertJsonPath('data.description', 'Itens cadastrados pela diocese');
+
+    $inventory = ParishInventory::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventories')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Inventario Principal']);
+
+    $this->withToken($token)
+        ->patchJson('/api/parish-inventories/'.$inventory->id, [
+            'name' => 'Inventario Atualizado',
+            'description' => 'Descricao atualizada',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Inventario Atualizado')
+        ->assertJsonPath('data.description', 'Descricao atualizada');
+
+    $this->assertDatabaseHas('parish_inventories', [
+        'id' => $inventory->id,
+        'parish_id' => $parish->id,
+        'name' => 'Inventario Atualizado',
+        'description' => 'Descricao atualizada',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/parish-inventories/'.$inventory->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('parish_inventories', ['id' => $inventory->id]);
+});
+
+it('limits parish admins to parish inventories from their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+
+    $ownInventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario da Paroquia',
+        'description' => null,
+    ]);
+    $otherInventory = ParishInventory::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Inventario Bloqueado',
+        'description' => null,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventories')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Inventario da Paroquia'])
+        ->assertJsonMissing(['name' => 'Inventario Bloqueado']);
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventories', [
+            'name' => 'Inventario Novo',
+            'description' => 'Criado pela paroquia',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Inventario Novo');
+
+    $this->assertDatabaseHas('parish_inventories', [
+        'parish_id' => $parish->id,
+        'name' => 'Inventario Novo',
+    ]);
+
+    $this->withToken($token)
+        ->patchJson('/api/parish-inventories/'.$ownInventory->id, [
+            'name' => 'Inventario Editado',
+            'description' => 'Editado pela paroquia',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Inventario Editado');
+
+    $this->withToken($token)
+        ->patchJson('/api/parish-inventories/'.$otherInventory->id, [
+            'name' => 'Inventario Invasor',
+            'description' => null,
+        ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->deleteJson('/api/parish-inventories/'.$otherInventory->id)
+        ->assertForbidden();
+});
+
+it('lets parish admins create cashboxes with their own parish id', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/cashboxes', [
+            'parish_id' => $parish->id,
+            'name' => 'Caixa principal',
+            'balance' => 100,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Caixa principal');
+
+    $this->assertDatabaseHas('cashboxes', [
+        'parish_id' => $parish->id,
+        'name' => 'Caixa principal',
+    ]);
+
+    $this->withToken($token)
+        ->postJson('/api/cashboxes', [
+            'parish_id' => $otherParish->id,
+            'name' => 'Caixa bloqueado',
+            'balance' => 100,
+        ])
+        ->assertForbidden();
 });
 
 it('lets diocese admins manage families from any parish', function () {

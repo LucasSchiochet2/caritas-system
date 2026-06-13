@@ -4,12 +4,13 @@ use App\Http\Controllers\Api\AssistedFamilyMemberController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BazaarCustomerController;
 use App\Http\Controllers\Api\BazaarItemController;
+use App\Http\Controllers\Api\CashboxController;
 use App\Http\Controllers\Api\FamilyController;
+use App\Http\Controllers\Api\LogsCashboxController;
 use App\Http\Controllers\Api\ParishController;
+use App\Http\Controllers\Api\ParishInventoryController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\CashboxController;
-use App\Http\Controllers\Api\LogsCashboxController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('diocese/login', [AuthController::class, 'dioceseLogin']);
@@ -43,6 +44,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Logs Cashboxes ---
     Route::get('logs-cashboxes', [LogsCashboxController::class, 'index']);
     Route::delete('logs-cashboxes/{logsCashbox}', [LogsCashboxController::class, 'destroy']);
+
+    // --- Parish Inventories ---
+    Route::get('parish-inventories', [ParishInventoryController::class, 'index']);
+    Route::post('parish-inventories', [ParishInventoryController::class, 'store']);
+    Route::patch('parish-inventories/{parishInventory}', [ParishInventoryController::class, 'update']);
+    Route::delete('parish-inventories/{parishInventory}', [ParishInventoryController::class, 'destroy']);
 
     // --- Families ---
     Route::get('families', [FamilyController::class, 'index']);

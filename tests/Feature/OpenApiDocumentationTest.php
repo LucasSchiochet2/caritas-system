@@ -51,11 +51,15 @@ it('serves the openapi json document', function () {
         ->assertJsonPath('openapi', '3.0.3')
         ->assertJsonPath('paths./diocese/login.post.summary', 'Login como admin da diocese')
         ->assertJsonPath('paths./bazaar-customers.post.summary', 'Cadastra cliente do bazar')
+        ->assertJsonPath('paths./parish-inventories.get.summary', 'Lista inventarios paroquiais')
+        ->assertJsonPath('paths./parish-inventories.post.summary', 'Cria inventario paroquial')
+        ->assertJsonPath('paths./parish-inventories/{parishInventory}.patch.summary', 'Atualiza inventario paroquial')
         ->assertJsonPath('paths./parishes.post.summary', 'Cria uma paróquia')
         ->assertJsonPath('paths./families.post.summary', 'Cadastra família')
         ->assertJsonPath('paths./families/{family}/inactivate.patch.summary', 'Inativa uma família')
         ->assertJsonPath('paths./families/{family}/assisted-family-members.post.summary', 'Cadastra familiar assistido')
         ->assertJsonPath('paths./roles.get.summary', 'Lista perfis disponíveis')
         ->assertJsonPath('tags.0.name', 'Autenticação')
+        ->assertJsonPath('components.schemas.ParishInventory.properties.name.type', 'string')
         ->assertJsonPath('components.securitySchemes.bearerAuth.scheme', 'bearer');
 });

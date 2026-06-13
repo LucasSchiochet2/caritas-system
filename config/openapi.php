@@ -17,6 +17,7 @@ return [
         ['name' => 'Autenticação'],
         ['name' => 'Bazar'],
         ['name' => 'Caixas'],
+        ['name' => 'Inventarios Paroquiais'],
         ['name' => 'Paróquias'],
         ['name' => 'Famílias'],
         ['name' => 'Usuários'],
@@ -523,6 +524,136 @@ return [
                 ],
                 'responses' => [
                     '204' => ['description' => 'Caixa excluído'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/parish-inventories' => [
+            'get' => [
+                'tags' => ['Inventarios Paroquiais'],
+                'summary' => 'Lista inventarios paroquiais',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia ficam restritos a propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de inventarios paroquiais',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Inventarios Paroquiais'],
+                'summary' => 'Cria inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Para token da diocese, parish_id e obrigatorio. Para token de paroquia, parish_id deve ser omitido.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreParishInventoryRequest'],
+                            'example' => [
+                                'parish_id' => 1,
+                                'name' => 'Inventario Principal',
+                                'description' => 'Itens da paroquia',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Inventario paroquial criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/parish-inventories/{parishInventory}' => [
+            'patch' => [
+                'tags' => ['Inventarios Paroquiais'],
+                'summary' => 'Atualiza inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia so podem editar inventarios da propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parishInventory',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateParishInventoryRequest'],
+                            'example' => [
+                                'name' => 'Inventario Atualizado',
+                                'description' => 'Descricao atualizada',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Inventario paroquial atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Inventarios Paroquiais'],
+                'summary' => 'Exclui inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia so podem excluir inventarios da propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parishInventory',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Inventario paroquial excluido'],
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
@@ -1357,6 +1488,23 @@ return [
                     'reason' => ['type' => 'string', 'nullable' => true, 'maxLength' => 100, 'description' => 'Obrigatório para movement_type igual a out.'],
                 ],
             ],
+            'StoreParishInventoryRequest' => [
+                'type' => 'object',
+                'required' => ['name'],
+                'properties' => [
+                    'parish_id' => ['type' => 'integer', 'description' => 'Obrigatorio para token da diocese; omitido para token de paroquia.'],
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'description' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                ],
+            ],
+            'UpdateParishInventoryRequest' => [
+                'type' => 'object',
+                'required' => ['name'],
+                'properties' => [
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'description' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                ],
+            ],
             'StoreParishRequest' => [
                 'type' => 'object',
                 'required' => ['name'],
@@ -1493,6 +1641,16 @@ return [
                     'id' => ['type' => 'integer'],
                     'name' => ['type' => 'string'],
                     'balance' => ['type' => 'number', 'format' => 'float'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                ],
+            ],
+            'ParishInventory' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string', 'nullable' => true],
                     'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                 ],

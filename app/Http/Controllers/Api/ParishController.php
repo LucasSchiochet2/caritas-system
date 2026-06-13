@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Parish;
 use App\Models\Cashbox;
+use App\Models\ParishInventory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -42,6 +43,12 @@ class ParishController extends Controller
             'parish_id' => $parish->id,
             'name' => 'Caixa Principal',
             'balance' => 0,
+        ]);
+        
+        ParishInventory::query()->create([
+            'parish_id' => $parish->id,
+            'name' => 'Inventário Principal',
+            'description' => null,
         ]);
 
         return response()->json(['data' => $this->payload($parish)], 201);
