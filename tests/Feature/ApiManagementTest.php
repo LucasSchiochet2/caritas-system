@@ -11,6 +11,7 @@ use App\Models\ParishInventoryItem;
 use App\Models\ParishInventoryItemQuantity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
 uses(RefreshDatabase::class);
 
@@ -361,6 +362,97 @@ it('limits parish admins to parish inventory items from their parish', function 
     $this->withToken($token)
         ->deleteJson('/api/parish-inventory-items/'.$otherItem->id)
         ->assertForbidden();
+});
+
+it('summarizes expired and near-expiration parish inventory item quantities', function () {
+    Carbon::setTestNow('2026-06-13 12:00:00');
+
+    try {
+        $admin = User::factory()->dioceseAdmin()->create();
+        $parish = Parish::factory()->create();
+        $inventory = ParishInventory::query()->create([
+            'parish_id' => $parish->id,
+            'name' => 'Inventario de Validades',
+            'description' => null,
+        ]);
+        $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+        $rice = ParishInventoryItem::query()->create([
+            'parish_inventory_id' => $inventory->id,
+            'name' => 'Arroz',
+            'description' => null,
+            'total_quantity' => 18,
+        ]);
+        ParishInventoryItemQuantity::query()->create([
+            'parish_inventory_item_id' => $rice->id,
+            'quantity' => 5,
+            'valid_until' => '2026-06-12',
+        ]);
+        ParishInventoryItemQuantity::query()->create([
+            'parish_inventory_item_id' => $rice->id,
+            'quantity' => 7,
+            'valid_until' => '2026-06-15',
+        ]);
+        ParishInventoryItemQuantity::query()->create([
+            'parish_inventory_item_id' => $rice->id,
+            'quantity' => 6,
+            'valid_until' => '2026-07-01',
+        ]);
+
+        $beans = ParishInventoryItem::query()->create([
+            'parish_inventory_id' => $inventory->id,
+            'name' => 'Feijao',
+            'description' => null,
+            'total_quantity' => 3,
+        ]);
+        ParishInventoryItemQuantity::query()->create([
+            'parish_inventory_item_id' => $beans->id,
+            'quantity' => 3,
+            'valid_until' => '2026-06-13',
+        ]);
+
+        $pasta = ParishInventoryItem::query()->create([
+            'parish_inventory_id' => $inventory->id,
+            'name' => 'Macarrao',
+            'description' => null,
+            'total_quantity' => 4,
+        ]);
+        ParishInventoryItemQuantity::query()->create([
+            'parish_inventory_item_id' => $pasta->id,
+            'quantity' => 4,
+            'valid_until' => '2026-06-10',
+        ]);
+
+        $validUntilResponse = $this->withToken($token)
+            ->getJson('/api/valid-until-this-week')
+            ->assertOk()
+            ->assertJsonPath('valid_until_items_count', 2)
+            ->assertJsonPath('valid_until_total_quantity', 10);
+
+        $validUntilItems = collect($validUntilResponse->json('data'))->keyBy('name');
+
+        expect($validUntilItems->get('Arroz')['valid_until_quantity'])->toBe(7)
+            ->and($validUntilItems->get('Arroz')['quantities'])->toHaveCount(1)
+            ->and($validUntilItems->get('Arroz')['quantities'][0]['valid_until'])->toBe('2026-06-15')
+            ->and($validUntilItems->get('Feijao')['valid_until_quantity'])->toBe(3)
+            ->and($validUntilItems->has('Macarrao'))->toBeFalse();
+
+        $expiredResponse = $this->withToken($token)
+            ->getJson('/api/expired-items')
+            ->assertOk()
+            ->assertJsonPath('expired_items_count', 2)
+            ->assertJsonPath('expired_total_quantity', 9);
+
+        $expiredItems = collect($expiredResponse->json('data'))->keyBy('name');
+
+        expect($expiredItems->get('Arroz')['expired_quantity'])->toBe(5)
+            ->and($expiredItems->get('Arroz')['quantities'])->toHaveCount(1)
+            ->and($expiredItems->get('Arroz')['quantities'][0]['valid_until'])->toBe('2026-06-12')
+            ->and($expiredItems->get('Macarrao')['expired_quantity'])->toBe(4)
+            ->and($expiredItems->has('Feijao'))->toBeFalse();
+    } finally {
+        Carbon::setTestNow();
+    }
 });
 
 it('lets parish admins create cashboxes with their own parish id', function () {

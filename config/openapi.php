@@ -529,10 +529,10 @@ return [
                 ],
             ],
         ],
-        '/parish-inventories' => [
+        '/valid-until-this-week' => [
             'get' => [
                 'tags' => ['Estoque Paroquiais'],
-                'summary' => 'Lista Estoque paroquiais',
+                'summary' => 'Lista itens com validade nesta semana',
                 'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia ficam restritos a propria paroquia.',
                 'security' => [['bearerAuth' => []]],
                 'responses' => [
@@ -543,9 +543,11 @@ return [
                                 'schema' => [
                                     'type' => 'object',
                                     'properties' => [
+                                        'valid_until_items_count' => ['type' => 'integer'],
+                                        'valid_until_total_quantity' => ['type' => 'integer'],
                                         'data' => [
                                             'type' => 'array',
-                                            'items' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                            'items' => ['$ref' => '#/components/schemas/ParishInventoryItem'],
                                         ],
                                     ],
                                 ],
@@ -557,6 +559,39 @@ return [
                 ],
             ],
         ],
+        '/expired-items' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Lista itens expirados',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia ficam restritos a propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de Estoque paroquiais',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'expired_items_count' => ['type' => 'integer'],
+                                        'expired_total_quantity' => ['type' => 'integer'],
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/ParishInventoryItem'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        
+
+        
         '/parish-inventory-items' => [
             'get' => [
                 'tags' => ['Estoque Paroquiais'],
@@ -569,6 +604,13 @@ return [
                         'in' => 'query',
                         'required' => false,
                         'schema' => ['type' => 'integer'],
+                    ],
+                    [
+                        'name' => 'search',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'string'],
+                        'description' => 'Busca por nome.',
                     ],
                 ],
                 'responses' => [
@@ -1774,6 +1816,8 @@ return [
                     'description' => ['type' => 'string', 'nullable' => true],
                     'parish_inventory_id' => ['type' => 'integer'],
                     'total_quantity' => ['type' => 'integer'],
+                    'valid_until_quantity' => ['type' => 'integer', 'description' => 'Soma das quantidades proximas da validade quando retornado por /valid-until-this-week.'],
+                    'expired_quantity' => ['type' => 'integer', 'description' => 'Soma das quantidades vencidas quando retornado por /expired-items.'],
                     'quantities' => [
                         'type' => 'array',
                         'items' => ['$ref' => '#/components/schemas/ParishInventoryItemQuantity'],

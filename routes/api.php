@@ -52,11 +52,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('parish-inventories/{parishInventory}', [ParishInventoryController::class, 'update']);
     Route::delete('parish-inventories/{parishInventory}', [ParishInventoryController::class, 'destroy']);
 
+    // --- Parish Inventory Items ---
     Route::get('parish-inventory-items', [ParishInventoryItemController::class, 'index']);
     Route::post('parish-inventory-items', [ParishInventoryItemController::class, 'store']);
     Route::post('parish-inventory-items/{parishInventoryItem}/quantities', [ParishInventoryItemController::class, 'addQuantity']);
     Route::patch('parish-inventory-items/{parishInventoryItem}', [ParishInventoryItemController::class, 'update']);
     Route::delete('parish-inventory-items/{parishInventoryItem}', [ParishInventoryItemController::class, 'destroy']);
+    Route::get('expired-items', [ParishInventoryItemController::class, 'expired_items']);
+    Route::get('valid-until-this-week', [ParishInventoryItemController::class, 'valid_until_this_week']);
 
     // --- Families ---
     Route::get('families', [FamilyController::class, 'index']);

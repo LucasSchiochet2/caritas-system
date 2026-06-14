@@ -8,15 +8,20 @@ use App\Models\ParishInventoryItem;
 use App\Models\ParishInventoryItemQuantity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 class ParishInventoryItemController extends Controller
 {
+    private const SIMILARITY_THRESHOLD = 0.5;
+
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
         $parishScopeId = $this->parishScopeId($request);
         $parishInventoryScopeId = $this->parishInventoryScopeId($request);
         $isDioceseScope = $this->isDioceseScope($request);
+        $search = trim((string) $request->query('search', ''));
+
         abort_unless($isDioceseScope || $parishScopeId !== null, 403);
         if ($parishScopeId !== null) {
             abort_unless($actor->canManageParish($parishScopeId), 403);
@@ -25,6 +30,12 @@ class ParishInventoryItemController extends Controller
             ->with('quantities')
             ->when($parishScopeId !== null, fn ($query) => $query->whereHas('inventory', fn ($query) => $query->where('parish_id', $parishScopeId)))
             ->when($parishInventoryScopeId !== null, fn ($query) => $query->where('parish_inventory_id', $parishInventoryScopeId))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                       ->orWhere(function ($subquery) use ($search) {
+                           $this->orWhereSimilarity($subquery, 'name', $search);
+                       });
+            })
             ->get()
             ->map(fn (ParishInventoryItem $item) => $this->payload($item));
 
@@ -109,6 +120,68 @@ class ParishInventoryItemController extends Controller
         return response()->json(['data' => $this->payload($parishInventoryItem)]);
     }
 
+    public function valid_until_this_week(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $isDioceseScope = $this->isDioceseScope($request);
+        $today = now()->toDateString();
+        $nextWeek = now()->addWeek()->toDateString();
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+        if ($parishScopeId !== null) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+
+        $items = ParishInventoryItem::query()
+            ->with(['quantities' => function ($query) use ($today, $nextWeek) {
+                $query->whereBetween('valid_until', [$today, $nextWeek]);
+            }])
+            ->whereHas('quantities', function (Builder $query) use ($today, $nextWeek) {
+                $query->whereBetween('valid_until', [$today, $nextWeek]);
+            })
+            ->when($parishScopeId !== null, fn ($query) => $query->whereHas('inventory', fn ($query) => $query->where('parish_id', $parishScopeId)))
+            ->get()
+            ->map(fn (ParishInventoryItem $item) => $this->payload($item, 'valid_until_quantity'));
+        
+        
+        return response()->json([
+            'valid_until_items_count' => $items->count(),
+            'valid_until_total_quantity' => $items->sum('valid_until_quantity'),
+            'data' => $items,
+        ]);
+    }
+    public function expired_items(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $isDioceseScope = $this->isDioceseScope($request);
+        $today = now()->toDateString();
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+        if ($parishScopeId !== null) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+
+        $items = ParishInventoryItem::query()
+            ->with(['quantities' => function ($query) use ($today) {
+                $query->where('valid_until', '<', $today);
+            }])
+            ->whereHas('quantities', function (Builder $query) use ($today) {
+                $query->where('valid_until', '<', $today);
+            })
+            ->when($parishScopeId !== null, fn ($query) => $query->whereHas('inventory', fn ($query) => $query->where('parish_id', $parishScopeId)))
+            ->get()
+            ->map(fn (ParishInventoryItem $item) => $this->payload($item, 'expired_quantity'));
+        
+        
+        return response()->json([
+            'expired_items_count' => $items->count(),
+            'expired_total_quantity' => $items->sum('expired_quantity'),
+            'data' => $items,
+        ]);
+    }
+
     public function update(Request $request, ParishInventoryItem $parishInventoryItem): JsonResponse
     {
         $actor = $request->user();
@@ -146,6 +219,22 @@ class ParishInventoryItemController extends Controller
 
         return response()->json(null, 204);
     }
+    private function orWhereSimilarity(Builder $query, string $column, string $search): void
+    {
+        if (! $this->usesPostgres()) {
+            return;
+        }
+
+        $query->orWhereRaw(
+            "similarity(coalesce({$column}, ''), ?) > ?",
+            [$search, self::SIMILARITY_THRESHOLD]
+        );
+    }
+
+    private function usesPostgres(): bool
+    {
+        return DB::connection()->getDriverName() === 'pgsql';
+    }
 
     private function isDioceseScope(Request $request): bool
     {
@@ -177,15 +266,25 @@ class ParishInventoryItemController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function payload(ParishInventoryItem $item): array
+    private function payload(ParishInventoryItem $item, ?string $quantitySummaryKey = null): array
     {
-        return [
+        $quantities = $item->quantities;
+
+        $payload = [
             'id' => $item->id,
             'name' => $item->name,
             'description' => $item->description,
             'parish_inventory_id' => $item->parish_inventory_id,
             'total_quantity' => $item->total_quantity,
-            'quantities' => $item->quantities
+        ];
+
+        if ($quantitySummaryKey !== null) {
+            $payload[$quantitySummaryKey] = $quantities->sum('quantity');
+        }
+
+        return [
+            ...$payload,
+            'quantities' => $quantities
                 ->map(fn (ParishInventoryItemQuantity $quantity) => [
                     'id' => $quantity->id,
                     'quantity' => $quantity->quantity,

@@ -57,6 +57,8 @@ it('serves the openapi json document', function () {
         ->assertJsonPath('paths./parish-inventory-items.get.summary', 'Lista itens de inventario paroquial')
         ->assertJsonPath('paths./parish-inventory-items.post.summary', 'Cria item de inventario paroquial')
         ->assertJsonPath('paths./parish-inventory-items/{parishInventoryItem}/quantities.post.summary', 'Adiciona quantidade ao item de inventario')
+        ->assertJsonPath('paths./valid-until-this-week.get.responses.200.content.application/json.schema.properties.valid_until_total_quantity.type', 'integer')
+        ->assertJsonPath('paths./expired-items.get.responses.200.content.application/json.schema.properties.expired_total_quantity.type', 'integer')
         ->assertJsonPath('paths./parishes.post.summary', 'Cria uma paróquia')
         ->assertJsonPath('paths./families.post.summary', 'Cadastra família')
         ->assertJsonPath('paths./families/{family}/inactivate.patch.summary', 'Inativa uma família')
@@ -65,6 +67,7 @@ it('serves the openapi json document', function () {
         ->assertJsonPath('tags.0.name', 'Autenticação')
         ->assertJsonPath('components.schemas.ParishInventory.properties.name.type', 'string')
         ->assertJsonPath('components.schemas.ParishInventoryItem.properties.quantities.type', 'array')
+        ->assertJsonPath('components.schemas.ParishInventoryItem.properties.expired_quantity.type', 'integer')
         ->assertJsonPath('components.schemas.StoreParishInventoryItemRequest.properties.valid_until.format', 'date')
         ->assertJsonPath('components.securitySchemes.bearerAuth.scheme', 'bearer');
 });
