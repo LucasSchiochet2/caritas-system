@@ -9,3 +9,5 @@
 <x-backpack::menu-item title="Cashboxes" icon="la la-question" :link="backpack_url('cashbox')" />
 <x-backpack::menu-item title="Logs cashboxes" icon="la la-question" :link="backpack_url('logs-cashbox')" />
 <x-backpack::menu-item title="Parish inventories" icon="la la-question" :link="backpack_url('parish-inventory')" />
+<x-backpack::menu-item title="Parish inventory items" icon="la la-question" :link="backpack_url('parish-inventory-item')" />
+<x-backpack::menu-item title="Parish inventory item quantities" icon="la la-question" :link="backpack_url('parish-inventory-item-quantity')" />

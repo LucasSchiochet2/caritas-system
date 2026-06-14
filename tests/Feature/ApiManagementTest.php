@@ -7,6 +7,8 @@ use App\Models\BazaarItem;
 use App\Models\Family;
 use App\Models\Parish;
 use App\Models\ParishInventory;
+use App\Models\ParishInventoryItem;
+use App\Models\ParishInventoryItemQuantity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -201,6 +203,163 @@ it('limits parish admins to parish inventories from their parish', function () {
 
     $this->withToken($token)
         ->deleteJson('/api/parish-inventories/'.$otherInventory->id)
+        ->assertForbidden();
+});
+
+it('lets diocese admins manage parish inventory items with quantities', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $inventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario da Diocese',
+        'description' => null,
+    ]);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-items', [
+            'parish_inventory_id' => $inventory->id,
+            'name' => 'Arroz',
+            'description' => 'Pacote 5kg',
+            'quantity' => 12,
+            'valid_until' => '2026-12-31',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Arroz')
+        ->assertJsonPath('data.total_quantity', 12)
+        ->assertJsonPath('data.quantities.0.quantity', 12)
+        ->assertJsonPath('data.quantities.0.valid_until', '2026-12-31');
+
+    $item = ParishInventoryItem::query()->firstOrFail();
+
+    $this->assertDatabaseHas('parish_inventory_items', [
+        'id' => $item->id,
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Arroz',
+        'total_quantity' => 12,
+    ]);
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'parish_inventory_item_id' => $item->id,
+        'quantity' => 12,
+        'valid_until' => '2026-12-31',
+    ]);
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-items/'.$item->id.'/quantities', [
+            'quantity' => 3,
+            'valid_until' => '2027-01-31',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.total_quantity', 15)
+        ->assertJsonPath('data.quantities.1.quantity', 3)
+        ->assertJsonPath('data.quantities.1.valid_until', '2027-01-31');
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-items?parish_inventory_id='.$inventory->id)
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Arroz'])
+        ->assertJsonFragment(['quantity' => 12])
+        ->assertJsonFragment(['quantity' => 3]);
+
+    $this->withToken($token)
+        ->patchJson('/api/parish-inventory-items/'.$item->id, [
+            'name' => 'Arroz branco',
+            'description' => 'Pacote 5kg tipo 1',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Arroz branco')
+        ->assertJsonPath('data.description', 'Pacote 5kg tipo 1')
+        ->assertJsonPath('data.quantities.0.quantity', 12);
+
+    $this->withToken($token)
+        ->deleteJson('/api/parish-inventory-items/'.$item->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('parish_inventory_items', ['id' => $item->id]);
+    $this->assertDatabaseMissing('parish_inventory_item_quantities', [
+        'parish_inventory_item_id' => $item->id,
+    ]);
+});
+
+it('limits parish admins to parish inventory items from their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+
+    $ownInventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario da Paroquia',
+        'description' => null,
+    ]);
+    $otherInventory = ParishInventory::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Inventario Bloqueado',
+        'description' => null,
+    ]);
+    $ownItem = ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $ownInventory->id,
+        'name' => 'Feijao',
+        'description' => null,
+        'total_quantity' => 4,
+    ]);
+    ParishInventoryItemQuantity::query()->create([
+        'parish_inventory_item_id' => $ownItem->id,
+        'quantity' => 4,
+        'valid_until' => '2026-10-10',
+    ]);
+    $otherItem = ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $otherInventory->id,
+        'name' => 'Macarrao',
+        'description' => null,
+        'total_quantity' => 8,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-items')
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Feijao'])
+        ->assertJsonMissing(['name' => 'Macarrao'])
+        ->assertJsonPath('data.0.quantities.0.quantity', 4);
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-items', [
+            'parish_inventory_id' => $ownInventory->id,
+            'name' => 'Oleo',
+            'description' => null,
+            'quantity' => 2,
+            'valid_until' => '2026-11-20',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Oleo');
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-items', [
+            'parish_inventory_id' => $otherInventory->id,
+            'name' => 'Item bloqueado',
+            'description' => null,
+            'quantity' => 1,
+            'valid_until' => '2026-11-20',
+        ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-items/'.$otherItem->id.'/quantities', [
+            'quantity' => 1,
+            'valid_until' => '2026-11-20',
+        ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->patchJson('/api/parish-inventory-items/'.$otherItem->id, [
+            'name' => 'Bloqueado',
+            'description' => null,
+        ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->deleteJson('/api/parish-inventory-items/'.$otherItem->id)
         ->assertForbidden();
 });
 

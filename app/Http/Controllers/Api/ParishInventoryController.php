@@ -111,6 +111,7 @@ class ParishInventoryController extends Controller
     {
         return [
             'id' => $item->id,
+            'parish_id' => $item->parish_id,
             'name' => $item->name,
             'description' => $item->description,
             'created_at' => $item->created_at?->toIso8601String(),

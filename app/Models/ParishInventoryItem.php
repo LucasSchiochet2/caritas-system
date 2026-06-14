@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Backpack\CRUD\app\Models\Traits\CrudTrait;
 use Illuminate\Database\Eloquent\Model;
 
 class ParishInventoryItem extends Model
 {
+    use CrudTrait;
     final protected $fillable = [
         'parish_inventory_id',
         'name',
@@ -16,5 +18,10 @@ class ParishInventoryItem extends Model
     public function inventory()
     {
         return $this->belongsTo(ParishInventory::class, 'parish_inventory_id');
+    }
+
+    public function quantities()
+    {
+        return $this->hasMany(ParishInventoryItemQuantity::class);
     }
 }

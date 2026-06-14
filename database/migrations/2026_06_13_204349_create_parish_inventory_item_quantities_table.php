@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('parish_inventory_item_quantities', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('parish_inventory_item_id')->constrained()->onDelete('cascade');
+            $table->integer('quantity')->default(0);
+            $table->date('valid_until');
             $table->timestamps();
         });
     }
