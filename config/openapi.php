@@ -20,6 +20,7 @@ return [
         ['name' => 'Estoque Paroquiais'],
         ['name' => 'Paróquias'],
         ['name' => 'Famílias'],
+        ['name' => 'Visitas Domiciliares'],
         ['name' => 'Usuários'],
     ],
     'paths' => [
@@ -483,6 +484,7 @@ return [
                             'schema' => ['$ref' => '#/components/schemas/UpdateCashboxRequest'],
                             'example' => [
                                 'name' => 'Caixa Principal',
+                                'family_id' => 1,
                                 'amount' => 25.5,
                                 'movement_type' => 'in',
                                 'reason' => null,
@@ -1338,6 +1340,31 @@ return [
                 ],
             ],
         ],
+        '/inactive-parishes' => [
+            'get' => [
+                'tags' => ['Paróquias'],
+                'security' => [['bearerAuth' => []]],
+                'summary' => 'Lista paróquias inativas',
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de paróquias inativas',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/Parish'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
         '/parishes/{parish}' => [
             'patch' => [
                 'tags' => ['Paróquias'],
@@ -1404,6 +1431,51 @@ return [
                 ],
             ],
         ],
+        '/parishes/{parish}/activate' => [
+            'patch' => [
+                'tags' => ['Paróquias'],
+                'summary' => 'Ativa uma paróquia',
+                'description' => 'Requer token de admin da diocese.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parish',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateParishRequest'],
+                            'example' => [
+                                'active' => true,
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Paróquia ativada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/Parish'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
         '/families' => [
             'get' => [
                 'tags' => ['Famílias'],
@@ -1463,6 +1535,8 @@ return [
                                 'observations' => 'Recebe cesta básica mensal',
                                 'responsible' => [
                                     'name' => 'Carla Silva',
+                                    'cpf' => '222.333.444-55',
+                                    'birth_date' => '1992-03-14',
                                     'mother_name' => 'Ana Silva',
                                     'relationship' => 'mae',
                                     'age' => 34,
@@ -1645,6 +1719,384 @@ return [
                 ],
             ],
         ],
+        '/families/{family}/financial-records' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Lista registros financeiros da familia',
+                'description' => 'Lista os registros financeiros vinculados a uma familia do escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de registros financeiros da familia',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/LogsCashbox'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/home-visits' => [
+            'get' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Lista visitas domiciliares recentes',
+                'description' => 'Lista visitas domiciliares. Tokens paroquiais ficam restritos à própria paróquia e retornam visitas dos últimos 2 meses; token da diocese lista todas.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de visitas domiciliares',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/home-visits/history' => [
+            'get' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Lista histórico de visitas domiciliares',
+                'description' => 'Lista todas as visitas do escopo do token em ordem decrescente de data.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Histórico de visitas domiciliares',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/families/{family}/home-visits' => [
+            'get' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Lista visitas domiciliares da família',
+                'description' => 'Lista as visitas cadastradas para uma família do escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de visitas da família',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Agenda visita domiciliar',
+                'description' => 'Agenda uma visita para a família informada na URL. O family_id vem do path.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreHomeVisitRequest'],
+                            'example' => [
+                                'user_id' => 1,
+                                'visit_date' => '2026-06-15 14:00:00',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Visita domiciliar criada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/home-visits/{homeVisit}' => [
+            'patch' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Atualiza visita domiciliar',
+                'description' => 'Atualiza dados gerais da visita domiciliar no escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateHomeVisitRequest'],
+                            'example' => [
+                                'visit_date' => '2026-06-16 09:00:00',
+                                'notes' => 'Família recebeu a equipe.',
+                                'forwarding' => 'Encaminhar para acompanhamento social.',
+                                'next_visit_date' => '2026-07-16 09:00:00',
+                                'status' => 'completed',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Visita domiciliar atualizada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Exclui visita domiciliar',
+                'description' => 'Remove uma visita domiciliar do escopo do token.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Visita domiciliar excluída'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/home-visits/{homeVisit}/reschedule' => [
+            'patch' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Reagenda visita domiciliar',
+                'description' => 'Altera apenas a data da visita domiciliar.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/RescheduleHomeVisitRequest'],
+                            'example' => [
+                                'visit_date' => '2026-06-20 15:30:00',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Visita domiciliar reagendada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/home-visits/{homeVisit}/cancel' => [
+            'patch' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Cancela visita domiciliar',
+                'description' => 'Marca a visita domiciliar como cancelada.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/CancelHomeVisitRequest'],
+                            'example' => [
+                                'status' => 'canceled',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Visita domiciliar cancelada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/home-visits/{homeVisit}/visit-record' => [
+            'patch' => [
+                'tags' => ['Visitas Domiciliares'],
+                'summary' => 'Registra resultado da visita domiciliar',
+                'description' => 'Salva anotações, encaminhamento, próxima visita e status após a realização da visita.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'homeVisit',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/VisitRecordHomeVisitRequest'],
+                            'example' => [
+                                'notes' => 'Família está com necessidade de cesta básica.',
+                                'forwarding' => 'Inserir na próxima entrega mensal.',
+                                'next_visit_date' => '2026-07-20 10:00:00',
+                                'status' => 'completed',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Registro da visita salvo',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/HomeVisit'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
         '/families/{family}/assisted-family-members' => [
             'get' => [
                 'tags' => ['Famílias'],
@@ -1700,6 +2152,8 @@ return [
                             'schema' => ['$ref' => '#/components/schemas/StoreAssistedFamilyMemberRequest'],
                             'example' => [
                                 'name' => 'Julia Ferreira',
+                                'cpf' => '111.222.333-44',
+                                'birth_date' => '2014-05-20',
                                 'mother_name' => 'Ana Ferreira',
                                 'relationship' => 'filha',
                                 'age' => 12,
@@ -1730,6 +2184,41 @@ return [
                 ],
             ],
         ],
+        '/assisted-family-members/search-by-cpf' => [
+            'get' => [
+                'tags' => ['Famílias'],
+                'summary' => 'Busca familiar assistido por CPF',
+                'description' => 'Retorna o familiar assistido pelo CPF informado. Aceita CPF formatado ou apenas dígitos.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'cpf',
+                        'in' => 'query',
+                        'required' => true,
+                        'schema' => ['type' => 'string', 'maxLength' => 14],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Familiar assistido encontrado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/AssistedFamilyMember'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '404' => ['description' => 'Familiar assistido não encontrado'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
         '/assisted-family-members/{assistedFamilyMember}' => [
             'patch' => [
                 'tags' => ['Famílias'],
@@ -1750,6 +2239,8 @@ return [
                         'application/json' => [
                             'schema' => ['$ref' => '#/components/schemas/UpdateAssistedFamilyMemberRequest'],
                             'example' => [
+                                'cpf' => '111.222.333-55',
+                                'birth_date' => '2013-05-20',
                                 'relationship' => 'filho',
                                 'age' => 13,
                                 'registration_status' => 'inativo',
@@ -1775,25 +2266,6 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                     '422' => ['$ref' => '#/components/responses/ValidationError'],
-                ],
-            ],
-            'delete' => [
-                'tags' => ['Famílias'],
-                'summary' => 'Exclui familiar assistido',
-                'description' => 'Remove um familiar assistido do cadastro da família.',
-                'security' => [['bearerAuth' => []]],
-                'parameters' => [
-                    [
-                        'name' => 'assistedFamilyMember',
-                        'in' => 'path',
-                        'required' => true,
-                        'schema' => ['type' => 'integer'],
-                    ],
-                ],
-                'responses' => [
-                    '204' => ['description' => 'Familiar assistido excluído'],
-                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
-                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -2051,6 +2523,7 @@ return [
                 'required' => ['name'],
                 'properties' => [
                     'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'family_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'Família vinculada à movimentação. Deve pertencer à mesma paróquia do caixa.'],
                     'balance' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
                     'amount' => ['type' => 'number', 'format' => 'float', 'minimum' => 0.01],
                     'movement_type' => ['type' => 'string', 'enum' => ['in', 'out'], 'description' => 'Obrigatório quando amount for enviado.'],
@@ -2208,6 +2681,8 @@ return [
                 'required' => ['name', 'mother_name', 'relationship', 'age', 'registration_status', 'registration_date', 'personal_income'],
                 'properties' => [
                     'name' => ['type' => 'string', 'maxLength' => 255],
+                    'cpf' => ['type' => 'string', 'nullable' => true, 'maxLength' => 14],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string', 'maxLength' => 255],
                     'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
                     'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
@@ -2220,12 +2695,55 @@ return [
                 'type' => 'object',
                 'properties' => [
                     'name' => ['type' => 'string', 'maxLength' => 255],
+                    'cpf' => ['type' => 'string', 'nullable' => true, 'maxLength' => 14],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string', 'maxLength' => 255],
                     'relationship' => ['type' => 'string', 'maxLength' => 50, 'example' => 'filho'],
                     'age' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 130],
                     'registration_status' => ['type' => 'string', 'maxLength' => 100],
                     'registration_date' => ['type' => 'string', 'format' => 'date'],
                     'personal_income' => ['type' => 'number', 'format' => 'float', 'minimum' => 0],
+                ],
+            ],
+            'StoreHomeVisitRequest' => [
+                'type' => 'object',
+                'required' => ['user_id', 'visit_date'],
+                'properties' => [
+                    'user_id' => ['type' => 'integer', 'description' => 'Usuário responsável pela visita.'],
+                    'visit_date' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'UpdateHomeVisitRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'visit_date' => ['type' => 'string', 'format' => 'date-time'],
+                    'notes' => ['type' => 'string', 'nullable' => true, 'maxLength' => 1500],
+                    'forwarding' => ['type' => 'string', 'nullable' => true, 'maxLength' => 500],
+                    'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'maxLength' => 50, 'example' => 'pending'],
+                ],
+            ],
+            'RescheduleHomeVisitRequest' => [
+                'type' => 'object',
+                'required' => ['visit_date'],
+                'properties' => [
+                    'visit_date' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'CancelHomeVisitRequest' => [
+                'type' => 'object',
+                'required' => ['status'],
+                'properties' => [
+                    'status' => ['type' => 'string', 'enum' => ['canceled'], 'maxLength' => 50, 'example' => 'canceled'],
+                ],
+            ],
+            'VisitRecordHomeVisitRequest' => [
+                'type' => 'object',
+                'properties' => [
+                    'notes' => ['type' => 'string', 'nullable' => true, 'maxLength' => 1500],
+                    'forwarding' => ['type' => 'string', 'nullable' => true, 'maxLength' => 500],
+                    'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'maxLength' => 50, 'example' => 'completed'],
                 ],
             ],
             'StoreUserRequest' => [
@@ -2408,10 +2926,42 @@ return [
                     'id' => ['type' => 'integer'],
                     'cashbox_id' => ['type' => 'integer'],
                     'user_id' => ['type' => 'integer'],
+                    'family_id' => ['type' => 'integer', 'nullable' => true],
                     'movement_type' => ['type' => 'string', 'enum' => ['in', 'out', 'update']],
                     'reason' => ['type' => 'string', 'nullable' => true],
                     'amount' => ['type' => 'number', 'format' => 'float'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'cashbox' => [
+                        'type' => 'object',
+                        'nullable' => true,
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'parish_id' => ['type' => 'integer'],
+                            'name' => ['type' => 'string'],
+                        ],
+                    ],
+                    'user' => [
+                        'type' => 'object',
+                        'nullable' => true,
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'name' => ['type' => 'string'],
+                            'email' => ['type' => 'string', 'format' => 'email'],
+                        ],
+                    ],
+                ],
+            ],
+            'HomeVisit' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'family_id' => ['type' => 'integer'],
+                    'user_id' => ['type' => 'integer'],
+                    'visit_date' => ['type' => 'string', 'format' => 'date-time'],
+                    'notes' => ['type' => 'string', 'nullable' => true],
+                    'forwarding' => ['type' => 'string', 'nullable' => true],
+                    'next_visit_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date-time'],
+                    'status' => ['type' => 'string', 'enum' => ['pending', 'completed', 'canceled'], 'example' => 'pending'],
                 ],
             ],
             'Family' => [
@@ -2438,6 +2988,8 @@ return [
                     'parish_id' => ['type' => 'integer'],
                     'family_id' => ['type' => 'integer'],
                     'name' => ['type' => 'string'],
+                    'cpf' => ['type' => 'string', 'nullable' => true],
+                    'birth_date' => ['type' => 'string', 'nullable' => true, 'format' => 'date'],
                     'mother_name' => ['type' => 'string'],
                     'relationship' => ['type' => 'string'],
                     'age' => ['type' => 'integer'],

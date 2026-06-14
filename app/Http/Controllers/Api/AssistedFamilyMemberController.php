@@ -7,6 +7,7 @@ use App\Models\AssistedFamilyMember;
 use App\Models\Family;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AssistedFamilyMemberController extends Controller
 {
@@ -28,6 +29,8 @@ class AssistedFamilyMemberController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'cpf' => ['nullable', 'string', 'max:14', Rule::unique('assisted_family_members', 'cpf')],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
             'mother_name' => ['required', 'string', 'max:255'],
             'relationship' => ['required', 'string', 'max:50'],
             'age' => ['required', 'integer', 'min:0', 'max:130'],
@@ -39,6 +42,8 @@ class AssistedFamilyMemberController extends Controller
         $member = $family->assistedFamilyMembers()->create([
             'parish_id' => $family->parish_id,
             'name' => $data['name'],
+            'cpf' => $data['cpf'] ?? null,
+            'birth_date' => $data['birth_date'] ?? null,
             'mother_name' => $data['mother_name'],
             'relationship' => $data['relationship'],
             'age' => $data['age'],
@@ -56,6 +61,8 @@ class AssistedFamilyMemberController extends Controller
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'cpf' => ['sometimes', 'nullable', 'string', 'max:14', Rule::unique('assisted_family_members', 'cpf')->ignore($assistedFamilyMember)],
+            'birth_date' => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
             'mother_name' => ['sometimes', 'required', 'string', 'max:255'],
             'relationship' => ['sometimes', 'required', 'string', 'max:50'],
             'age' => ['sometimes', 'required', 'integer', 'min:0', 'max:130'],
@@ -72,6 +79,33 @@ class AssistedFamilyMemberController extends Controller
         }
 
         return response()->json(['data' => $this->payload($assistedFamilyMember)]);
+    }
+
+    public function searchByCpf(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'cpf' => ['required', 'string', 'max:14'],
+        ]);
+
+        $cpf = trim($data['cpf']);
+        $digits = preg_replace('/\D+/', '', $cpf);
+
+        $member = AssistedFamilyMember::query()
+            ->where(function ($query) use ($cpf, $digits) {
+                $query->where('cpf', $cpf);
+
+                if ($digits !== '') {
+                    $query->orWhereRaw(
+                        "replace(replace(replace(cpf, '.', ''), '-', ''), ' ', '') = ?",
+                        [$digits]
+                    );
+                }
+            })
+            ->firstOrFail();
+
+        $this->authorizeMember($request, $member);
+
+        return response()->json(['data' => $this->payload($member)]);
     }
 
     public function destroy(Request $request, AssistedFamilyMember $assistedFamilyMember): JsonResponse
@@ -144,6 +178,8 @@ class AssistedFamilyMemberController extends Controller
             'parish_id' => $member->parish_id,
             'family_id' => $member->family_id,
             'name' => $member->name,
+            'cpf' => $member->cpf,
+            'birth_date' => $member->birth_date?->toDateString(),
             'mother_name' => $member->mother_name,
             'relationship' => $member->relationship,
             'age' => $member->age,

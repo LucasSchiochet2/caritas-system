@@ -51,5 +51,13 @@ class Family extends Model
     public function basketDeliveries(): HasMany
     {
         return $this->hasMany(BasketDelivery::class);
+    public function financialRecords(): HasMany
+    {
+        return $this->hasMany(LogsCashbox::class);
+    }
+
+    public function homeVisits(): HasMany
+    {
+        return $this->hasMany(HomeVisit::class);
     }
 }

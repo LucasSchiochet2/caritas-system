@@ -11,3 +11,4 @@
 <x-backpack::menu-item title="Parish inventories" icon="la la-question" :link="backpack_url('parish-inventory')" />
 <x-backpack::menu-item title="Parish inventory items" icon="la la-question" :link="backpack_url('parish-inventory-item')" />
 <x-backpack::menu-item title="Parish inventory item quantities" icon="la la-question" :link="backpack_url('parish-inventory-item-quantity')" />
+<x-backpack::menu-item title="Home visits" icon="la la-question" :link="backpack_url('home-visit')" />

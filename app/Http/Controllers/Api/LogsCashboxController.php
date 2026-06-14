@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Family;
 use App\Models\LogsCashbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,31 @@ class LogsCashboxController extends Controller
 
         return response()->json(['data' => $items]);
     }
+
+    public function indexByFamily(Request $request, Family $family): JsonResponse
+    {
+        if ($this->isDioceseScope($request)) {
+            return response()->json(['data' => $family->financialRecords()->with(['cashbox:id,name,parish_id', 'user:id,name,email'])->latest()->get()->map(fn (LogsCashbox $item) => $this->payload($item))]);
+        }
+
+        $parishScopeId = $this->parishScopeId($request);
+
+        abort_unless(
+            $parishScopeId !== null
+                && $family->parish_id === $parishScopeId
+                && $request->user()->canManageParish($parishScopeId),
+            403
+        );
+
+        $items = $family->financialRecords()
+            ->with(['cashbox:id,name,parish_id', 'user:id,name,email'])
+            ->latest()
+            ->get()
+            ->map(fn (LogsCashbox $item) => $this->payload($item));
+
+        return response()->json(['data' => $items]);
+    }
+
     public function destroy(Request $request, LogsCashbox $logsCashbox): JsonResponse
     {
         $actor = $request->user();
@@ -70,10 +96,25 @@ class LogsCashboxController extends Controller
             'id' => $item->id,
             'cashbox_id' => $item->cashbox_id,
             'user_id' => $item->user_id,
+            'family_id' => $item->family_id,
             'movement_type' => $item->movement_type,
             'reason' => $item->reason,
             'amount' => $item->amount,
             'created_at' => $item->created_at?->toIso8601String(),
+            'cashbox' => $item->relationLoaded('cashbox') && $item->cashbox
+                ? [
+                    'id' => $item->cashbox->id,
+                    'parish_id' => $item->cashbox->parish_id,
+                    'name' => $item->cashbox->name,
+                ]
+                : null,
+            'user' => $item->relationLoaded('user') && $item->user
+                ? [
+                    'id' => $item->user->id,
+                    'name' => $item->user->name,
+                    'email' => $item->user->email,
+                ]
+                : null,
         ];
     }
 }

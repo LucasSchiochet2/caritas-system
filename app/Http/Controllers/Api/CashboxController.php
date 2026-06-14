@@ -7,6 +7,7 @@ use App\Models\Cashbox;
 use App\Models\LogsCashbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Log;
 
 class CashboxController extends Controller
@@ -69,6 +70,11 @@ class CashboxController extends Controller
             : 'nullable|string|max:100';
          $data = $request->validate([
             'name'          => 'required|min:3|max:255',
+            'family_id'     => [
+                'nullable',
+                'integer',
+                Rule::exists('families', 'id')->where('parish_id', $cashbox->parish_id),
+            ],
             'balance'       => $balanceRule,
             'amount'        => $amountRule,
             'movement_type' => $movementTypeRule,
@@ -77,11 +83,11 @@ class CashboxController extends Controller
 
         if ($request->has('amount')) {
             $currentBalance = $cashbox->balance; // Pega o valor atual do banco
-            
+
             $data['balance'] = $request->input('movement_type') === 'out'
                 ? $currentBalance - $request->input('amount')
                 : $currentBalance + $request->input('amount');
-                
+
             // Garante que o saldo não fique negativo caso sua regra de negócio não permita
             if ($data['balance'] < 0) {
                 return response()->json(['message' => 'Saldo insuficiente para realizar esta saída.'], 422);
@@ -91,6 +97,7 @@ class CashboxController extends Controller
         LogsCashbox::query()->create([
             'cashbox_id' => $cashbox->id,
             'user_id' => $actor->id,
+            'family_id' => $data['family_id'] ?? null,
             'movement_type' => $data['movement_type'] ?? 'update',
             'reason' => $data['reason'] ?? null,
             'amount' => $request->input('amount') ?? 0,

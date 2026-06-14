@@ -23,6 +23,8 @@ class AssistedFamilyMemberFactory extends Factory
             'parish_id' => Parish::factory(),
             'family_id' => Family::factory(),
             'name' => $this->faker->name(),
+            'cpf' => $this->faker->unique()->numerify('###.###.###-##'),
+            'birth_date' => $this->faker->dateTimeBetween('-90 years', 'now')->format('Y-m-d'),
             'mother_name' => $this->faker->name('female'),
             'relationship' => $this->faker->randomElement(['pai', 'mae', 'filho', 'filha', 'avo']),
             'age' => $this->faker->numberBetween(0, 90),

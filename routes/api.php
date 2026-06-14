@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\BazaarItemController;
 use App\Http\Controllers\Api\CashboxController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\LogsCashboxController;
+use App\Http\Controllers\Api\HomeVisitController;
 use App\Http\Controllers\Api\ParishController;
 use App\Http\Controllers\Api\ParishInventoryController;
 use App\Http\Controllers\Api\ParishInventoryItemController;
@@ -79,16 +80,29 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('inactive-families', [FamilyController::class, 'inactivateFamilies']);
     Route::post('families', [FamilyController::class, 'store']);
     Route::get('families/{family}/basket-deliveries', [BasketDeliveryController::class, 'familyIndex']);
+    Route::get('families/{family}/financial-records', [LogsCashboxController::class, 'indexByFamily']);
     Route::get('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'index']);
     Route::post('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'store']);
     Route::patch('families/{family}', [FamilyController::class, 'update']);
     Route::patch('families/{family}/inactivate', [FamilyController::class, 'inactivate']);
     Route::patch('families/{family}/activate', [FamilyController::class, 'activate']);
-    Route::delete('families/{family}', [FamilyController::class, 'destroy']);
+    // Route::delete('families/{family}', [FamilyController::class, 'destroy']);
 
     // --- Assisted Family Members ---
+    Route::get('assisted-family-members/search-by-cpf', [AssistedFamilyMemberController::class, 'searchByCpf']);
     Route::patch('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'update']);
     Route::delete('assisted-family-members/{assistedFamilyMember}', [AssistedFamilyMemberController::class, 'destroy']);
+
+    // --- Home Visits ---
+    Route::get('home-visits', [HomeVisitController::class, 'index']);
+    Route::get('home-visits/history', [HomeVisitController::class, 'history']);
+    Route::get('families/{family}/home-visits', [HomeVisitController::class, 'indexByFamily']);
+    Route::post('families/{family}/home-visits', [HomeVisitController::class, 'store']);
+    Route::patch('home-visits/{homeVisit}', [HomeVisitController::class, 'update']);
+    Route::delete('home-visits/{homeVisit}', [HomeVisitController::class, 'destroy']);
+    Route::patch('home-visits/{homeVisit}/reschedule', [HomeVisitController::class, 'reschedule']);
+    Route::patch('home-visits/{homeVisit}/cancel', [HomeVisitController::class, 'cancel']);
+    Route::patch('home-visits/{homeVisit}/visit-record', [HomeVisitController::class, 'visit_record']);
 
     // --- Users ---
     Route::get('users', [UserController::class, 'index']);
@@ -100,4 +114,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('parishes', [ParishController::class, 'store']);
     Route::patch('parishes/{parish}', [ParishController::class, 'update']);
     Route::delete('parishes/{parish}', [ParishController::class, 'destroy']);
+    Route::patch('parishes/{parish}/activate', [ParishController::class, 'activate']);
+    Route::get('inactive-parishes', [ParishController::class, 'inactive_parishes']);
 });

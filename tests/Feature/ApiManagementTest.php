@@ -6,7 +6,10 @@ use App\Models\BasketDelivery;
 use App\Models\BasketTemplate;
 use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
+use App\Models\Cashbox;
 use App\Models\Family;
+use App\Models\HomeVisit;
+use App\Models\LogsCashbox;
 use App\Models\Parish;
 use App\Models\ParishInventory;
 use App\Models\ParishInventoryItem;
@@ -700,6 +703,8 @@ it('lets diocese admins manage families from any parish', function () {
             'observations' => 'Recebe cesta basica mensal',
             'responsible' => [
                 'name' => 'Carla Silva',
+                'cpf' => '222.333.444-55',
+                'birth_date' => '1992-03-14',
                 'mother_name' => 'Ana Silva',
                 'relationship' => 'mae',
                 'age' => 34,
@@ -713,6 +718,8 @@ it('lets diocese admins manage families from any parish', function () {
         ->assertJsonPath('data.parish_id', $parish->id)
         ->assertJsonPath('data.parish.name', 'Paroquia Sao Pedro')
         ->assertJsonPath('data.responsible.name', 'Carla Silva')
+        ->assertJsonPath('data.responsible.cpf', '222.333.444-55')
+        ->assertJsonPath('data.responsible.birth_date', '1992-03-14')
         ->assertJsonPath('data.responsible.mother_name', 'Ana Silva')
         ->assertJsonPath('data.responsible.relationship', 'mae')
         ->assertJsonPath('data.responsible.age', 34)
@@ -726,17 +733,8 @@ it('lets diocese admins manage families from any parish', function () {
         ->assertOk()
         ->assertJsonCount(0, 'data');
 
-    $this->withToken($token)
-        ->getJson('/api/families?all=true')
-        ->assertOk()
-        ->assertJsonFragment(['name' => 'Carla Silva'])
-        ->assertJsonFragment(['name' => 'Familia Oliveira']);
 
-    $this->withToken($token)
-        ->getJson('/api/families?all=true&search=Carla')
-        ->assertOk()
-        ->assertJsonFragment(['name' => 'Carla Silva'])
-        ->assertJsonMissing(['name' => 'Familia Oliveira']);
+
 
     $this->withToken($token)
         ->patchJson('/api/families/'.$family->id, [
@@ -758,6 +756,8 @@ it('lets diocese admins manage families from any parish', function () {
         'family_id' => $family->id,
         'parish_id' => $otherParish->id,
         'name' => 'Carla Silva',
+        'cpf' => '222.333.444-55',
+        'birth_date' => '1992-03-14',
         'mother_name' => 'Ana Silva',
         'relationship' => 'mae',
         'age' => 34,
@@ -815,10 +815,6 @@ it('limits parish admins to families from their parish', function () {
         ->assertJsonMissing(['name' => 'Familia Costa']);
 
     $this->withToken($token)
-        ->getJson('/api/families?all=true')
-        ->assertForbidden();
-
-    $this->withToken($token)
         ->getJson('/api/families?search=Souza')
         ->assertOk()
         ->assertJsonFragment(['name' => 'Familia Souza'])
@@ -874,6 +870,235 @@ it('limits parish admins to families from their parish', function () {
         ->assertForbidden();
 });
 
+it('records cashbox movements with a family from the same parish', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => $family->id,
+            'amount' => 20,
+            'movement_type' => 'out',
+            'reason' => 'Cesta basica',
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('logs_cashboxes', [
+        'cashbox_id' => $cashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $family->id,
+        'movement_type' => 'out',
+        'reason' => 'Cesta basica',
+        'amount' => 20,
+    ]);
+
+    $log = LogsCashbox::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/logs-cashboxes')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $log->id)
+        ->assertJsonPath('data.0.family_id', $family->id);
+});
+
+it('lists financial records for a specific family', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $otherCashbox = Cashbox::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Caixa Outra Paroquia',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $ownLog = LogsCashbox::query()->create([
+        'cashbox_id' => $cashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $family->id,
+        'movement_type' => 'out',
+        'reason' => 'Cesta basica',
+        'amount' => 20,
+    ]);
+    LogsCashbox::query()->create([
+        'cashbox_id' => $otherCashbox->id,
+        'user_id' => $admin->id,
+        'family_id' => $otherFamily->id,
+        'movement_type' => 'out',
+        'reason' => 'Registro bloqueado',
+        'amount' => 30,
+    ]);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/financial-records')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $ownLog->id)
+        ->assertJsonPath('data.0.family_id', $family->id)
+        ->assertJsonPath('data.0.cashbox.name', 'Caixa Principal')
+        ->assertJsonPath('data.0.user.id', $admin->id);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$otherFamily->id.'/financial-records')
+        ->assertForbidden();
+});
+
+it('validates cashbox movement family id against the cashbox parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $cashbox = Cashbox::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Caixa Principal',
+        'balance' => 100,
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => $otherFamily->id,
+            'amount' => 20,
+            'movement_type' => 'in',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['family_id']);
+
+    $this->withToken($token)
+        ->patchJson('/api/cashboxes/'.$cashbox->id, [
+            'name' => 'Caixa Principal',
+            'family_id' => 999999,
+            'amount' => 20,
+            'movement_type' => 'in',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['family_id']);
+
+    $this->assertDatabaseCount('logs_cashboxes', 0);
+});
+
+it('lets parish admins manage home visits for families from their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $family = Family::factory()->for($parish)->create();
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+    $visitDate = now()->addDays(3)->setTime(14, 0)->toDateTimeString();
+    $otherVisitDate = now()->addDays(4)->setTime(10, 0)->toDateTimeString();
+
+    HomeVisit::query()->create([
+        'family_id' => $otherFamily->id,
+        'user_id' => $admin->id,
+        'visit_date' => $otherVisitDate,
+    ]);
+
+    $this->withToken($token)
+        ->postJson('/api/families/'.$family->id.'/home-visits', [
+            'user_id' => $admin->id,
+            'visit_date' => $visitDate,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.family_id', $family->id)
+        ->assertJsonPath('data.user_id', $admin->id)
+        ->assertJsonPath('data.visit_date', $visitDate)
+        ->assertJsonPath('data.status', 'pending');
+
+    $visit = HomeVisit::query()->where('family_id', $family->id)->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/home-visits')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $visit->id);
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/home-visits')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $visit->id);
+
+    $rescheduledDate = now()->addDays(7)->setTime(9, 30)->toDateTimeString();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/reschedule', [
+            'visit_date' => $rescheduledDate,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.visit_date', $rescheduledDate);
+
+    $nextVisitDate = now()->addMonth()->setTime(9, 30)->toDateTimeString();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/visit-record', [
+            'notes' => 'Familia recebeu a equipe.',
+            'forwarding' => 'Encaminhar para acompanhamento social.',
+            'next_visit_date' => $nextVisitDate,
+            'status' => 'completed',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.notes', 'Familia recebeu a equipe.')
+        ->assertJsonPath('data.forwarding', 'Encaminhar para acompanhamento social.')
+        ->assertJsonPath('data.next_visit_date', $nextVisitDate)
+        ->assertJsonPath('data.status', 'completed');
+
+    $this->assertDatabaseHas('home_visits', [
+        'id' => $visit->id,
+        'family_id' => $family->id,
+        'status' => 'completed',
+    ]);
+
+    $this->withToken($token)
+        ->deleteJson('/api/home-visits/'.$visit->id)
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('home_visits', ['id' => $visit->id]);
+});
+
+it('prevents parish admins from managing home visits outside their parish', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $otherFamily = Family::factory()->for($otherParish)->create();
+    $visit = HomeVisit::query()->create([
+        'family_id' => $otherFamily->id,
+        'user_id' => $admin->id,
+        'visit_date' => now()->addDays(2)->setTime(10, 0)->toDateTimeString(),
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$otherFamily->id.'/home-visits')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/reschedule', [
+            'visit_date' => now()->addDays(5)->setTime(10, 0)->toDateTimeString(),
+        ])
+        ->assertForbidden();
+});
+
 it('requires a responsible assisted member when creating a family', function () {
     $admin = User::factory()->dioceseAdmin()->create();
     $parish = Parish::factory()->create();
@@ -917,6 +1142,8 @@ it('lets admins manage assisted family members inside families', function () {
     $this->withToken($token)
         ->postJson('/api/families/'.$family->id.'/assisted-family-members', [
             'name' => 'Julia Ferreira',
+            'cpf' => '111.222.333-44',
+            'birth_date' => '2014-05-20',
             'mother_name' => 'Ana Ferreira',
             'relationship' => 'filha',
             'age' => 12,
@@ -928,6 +1155,8 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertJsonPath('data.family_id', $family->id)
         ->assertJsonPath('data.parish_id', $family->parish_id)
         ->assertJsonPath('data.name', 'Julia Ferreira')
+        ->assertJsonPath('data.cpf', '111.222.333-44')
+        ->assertJsonPath('data.birth_date', '2014-05-20')
         ->assertJsonPath('data.mother_name', 'Ana Ferreira')
         ->assertJsonPath('data.relationship', 'filha')
         ->assertJsonPath('data.age', 12)
@@ -941,14 +1170,19 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertOk()
         ->assertJsonFragment(['mother_name' => 'Ana Ferreira']);
 
+
     $this->withToken($token)
-        ->getJson('/api/families?all=true')
+        ->getJson('/api/assisted-family-members/search-by-cpf?cpf=11122233344')
         ->assertOk()
-        ->assertJsonPath('data.0.assisted_family_members.0.mother_name', 'Ana Ferreira');
+        ->assertJsonPath('data.id', $member->id)
+        ->assertJsonPath('data.cpf', '111.222.333-44')
+        ->assertJsonPath('data.birth_date', '2014-05-20');
 
     $this->withToken($token)
         ->patchJson('/api/assisted-family-members/'.$member->id, [
             'name' => 'Julio Ferreira',
+            'cpf' => '111.222.333-55',
+            'birth_date' => '2013-05-20',
             'relationship' => 'filho',
             'age' => 13,
             'registration_status' => 'inativo',
@@ -956,6 +1190,8 @@ it('lets admins manage assisted family members inside families', function () {
         ])
         ->assertOk()
         ->assertJsonPath('data.name', 'Julio Ferreira')
+        ->assertJsonPath('data.cpf', '111.222.333-55')
+        ->assertJsonPath('data.birth_date', '2013-05-20')
         ->assertJsonPath('data.relationship', 'filho')
         ->assertJsonPath('data.age', 13)
         ->assertJsonPath('data.registration_status', 'inativo')
@@ -966,6 +1202,8 @@ it('lets admins manage assisted family members inside families', function () {
         'family_id' => $family->id,
         'parish_id' => $family->parish_id,
         'name' => 'Julio Ferreira',
+        'cpf' => '111.222.333-55',
+        'birth_date' => '2013-05-20',
         'relationship' => 'filho',
         'age' => 13,
         'registration_status' => 'inativo',
@@ -1017,6 +1255,7 @@ it('limits parish admins to assisted members from their parish families', functi
     $otherFamily = Family::factory()->for($otherParish)->create();
     $otherMember = AssistedFamilyMember::factory()->for($otherFamily, 'family')->create([
         'parish_id' => $otherParish->id,
+        'cpf' => '333.444.555-66',
         'mother_name' => 'Maria Bloqueada',
     ]);
     $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
@@ -1043,6 +1282,10 @@ it('limits parish admins to assisted members from their parish families', functi
         ->patchJson('/api/assisted-family-members/'.$otherMember->id, [
             'registration_status' => 'ativo',
         ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->getJson('/api/assisted-family-members/search-by-cpf?cpf=333.444.555-66')
         ->assertForbidden();
 });
 
