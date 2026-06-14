@@ -529,6 +529,136 @@ return [
                 ],
             ],
         ],
+        '/parish-inventories' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Lista inventarios paroquiais',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia ficam restritos a propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de inventarios paroquiais',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Cria inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Para token da diocese, parish_id e obrigatorio. Para token de paroquia, parish_id deve ser omitido.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreParishInventoryRequest'],
+                            'example' => [
+                                'parish_id' => 1,
+                                'name' => 'Inventario Principal',
+                                'description' => 'Itens da paroquia',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Inventario paroquial criado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/parish-inventories/{parishInventory}' => [
+            'patch' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Atualiza inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia so podem editar inventarios da propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parishInventory',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateParishInventoryRequest'],
+                            'example' => [
+                                'name' => 'Inventario Atualizado',
+                                'description' => 'Descricao atualizada',
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Inventario paroquial atualizado',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/ParishInventory'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Exclui inventario paroquial',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia so podem excluir inventarios da propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'parishInventory',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Inventario paroquial excluido'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
         '/valid-until-this-week' => [
             'get' => [
                 'tags' => ['Estoque Paroquiais'],
@@ -782,6 +912,319 @@ return [
                     '401' => ['$ref' => '#/components/responses/Unauthenticated'],
                     '403' => ['$ref' => '#/components/responses/Forbidden'],
                     '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/basket-templates' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Lista cestas pre definidas',
+                'description' => 'Requer token da diocese ou token de paroquia. Tokens de paroquia retornam apenas modelos da propria paroquia.',
+                'security' => [['bearerAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de cestas pre definidas',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/BasketTemplate'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Cria cesta pre definida',
+                'description' => 'Define os itens e quantidades padrao de uma cesta. Para token da diocese, parish_id e obrigatorio.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreBasketTemplateRequest'],
+                            'example' => [
+                                'parish_id' => 1,
+                                'name' => 'Cesta Basica',
+                                'description' => 'Modelo mensal',
+                                'items' => [
+                                    [
+                                        'parish_inventory_item_id' => 1,
+                                        'quantity' => 2,
+                                    ],
+                                    [
+                                        'parish_inventory_item_id' => 2,
+                                        'quantity' => 1,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Cesta pre definida criada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BasketTemplate'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/basket-templates/{basketTemplate}' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Detalha cesta pre definida',
+                'description' => 'Retorna os itens do template com os lotes disponiveis, quantidades e validades para montar a saida.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'basketTemplate',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Cesta pre definida',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BasketTemplate'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'patch' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Atualiza cesta pre definida',
+                'description' => 'Atualiza os dados da cesta e, quando items for enviado, substitui a composicao da cesta.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'basketTemplate',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/UpdateBasketTemplateRequest'],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Cesta pre definida atualizada',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BasketTemplate'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+            'delete' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Exclui cesta pre definida',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'basketTemplate',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '204' => ['description' => 'Cesta pre definida excluida'],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/basket-deliveries' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Lista cestas entregues',
+                'description' => 'Aceita family_id para filtrar entregas de uma familia.',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family_id',
+                        'in' => 'query',
+                        'required' => false,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de cestas entregues',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/BasketDelivery'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+            'post' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Registra entrega de cesta',
+                'description' => 'family_id e obrigatorio. Com basket_template_id, items e opcional: se omitido, usa as quantidades padrao do template. Quando parish_inventory_item_quantity_id for omitido, a baixa usa automaticamente os lotes com validade mais proxima.',
+                'security' => [['bearerAuth' => []]],
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/StoreBasketDeliveryRequest'],
+                            'example' => [
+                                'family_id' => 10,
+                                'basket_template_id' => 3,
+                                'delivered_at' => '2026-06-13 10:00:00',
+                                'notes' => 'Entrega mensal',
+                                'items' => [
+                                    [
+                                        'parish_inventory_item_id' => 1,
+                                        'quantity' => 2,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'responses' => [
+                    '201' => [
+                        'description' => 'Cesta entregue',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BasketDelivery'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                    '422' => ['$ref' => '#/components/responses/ValidationError'],
+                ],
+            ],
+        ],
+        '/basket-deliveries/{basketDelivery}' => [
+            'get' => [
+                'tags' => ['Estoque Paroquiais'],
+                'summary' => 'Detalha cesta entregue',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'basketDelivery',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Cesta entregue',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => ['$ref' => '#/components/schemas/BasketDelivery'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
+                ],
+            ],
+        ],
+        '/families/{family}/basket-deliveries' => [
+            'get' => [
+                'tags' => ['FamÃ­lias'],
+                'summary' => 'Lista cestas recebidas por uma familia',
+                'security' => [['bearerAuth' => []]],
+                'parameters' => [
+                    [
+                        'name' => 'family',
+                        'in' => 'path',
+                        'required' => true,
+                        'schema' => ['type' => 'integer'],
+                    ],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Lista de cestas recebidas pela familia',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'data' => [
+                                            'type' => 'array',
+                                            'items' => ['$ref' => '#/components/schemas/BasketDelivery'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                    '403' => ['$ref' => '#/components/responses/Forbidden'],
                 ],
             ],
         ],
@@ -1658,6 +2101,68 @@ return [
                     'valid_until' => ['type' => 'string', 'format' => 'date'],
                 ],
             ],
+            'StoreBasketTemplateRequest' => [
+                'type' => 'object',
+                'required' => ['name', 'items'],
+                'properties' => [
+                    'parish_id' => ['type' => 'integer', 'description' => 'Obrigatorio para token da diocese; opcional para token de paroquia, desde que seja a propria paroquia.'],
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'description' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                    'active' => ['type' => 'boolean', 'default' => true],
+                    'items' => [
+                        'type' => 'array',
+                        'minItems' => 1,
+                        'items' => ['$ref' => '#/components/schemas/StoreBasketTemplateItemRequest'],
+                    ],
+                ],
+            ],
+            'UpdateBasketTemplateRequest' => [
+                'type' => 'object',
+                'required' => ['name'],
+                'properties' => [
+                    'name' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 255],
+                    'description' => ['type' => 'string', 'nullable' => true, 'maxLength' => 255],
+                    'active' => ['type' => 'boolean'],
+                    'items' => [
+                        'type' => 'array',
+                        'minItems' => 1,
+                        'items' => ['$ref' => '#/components/schemas/StoreBasketTemplateItemRequest'],
+                    ],
+                ],
+            ],
+            'StoreBasketTemplateItemRequest' => [
+                'type' => 'object',
+                'required' => ['parish_inventory_item_id', 'quantity'],
+                'properties' => [
+                    'parish_inventory_item_id' => ['type' => 'integer'],
+                    'quantity' => ['type' => 'integer', 'minimum' => 1],
+                ],
+            ],
+            'StoreBasketDeliveryRequest' => [
+                'type' => 'object',
+                'required' => ['family_id'],
+                'properties' => [
+                    'family_id' => ['type' => 'integer', 'description' => 'Familia que recebe a cesta.'],
+                    'basket_template_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'Opcional. Quando informado e items for omitido, usa os itens padrao do template.'],
+                    'delivered_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'notes' => ['type' => 'string', 'nullable' => true],
+                    'items' => [
+                        'type' => 'array',
+                        'minItems' => 1,
+                        'description' => 'Obrigatorio quando basket_template_id nao for enviado. Pode apontar para um lote especifico ou apenas para o item de inventario; nesse caso a validade mais proxima e usada automaticamente.',
+                        'items' => ['$ref' => '#/components/schemas/StoreBasketDeliveryItemRequest'],
+                    ],
+                ],
+            ],
+            'StoreBasketDeliveryItemRequest' => [
+                'type' => 'object',
+                'required' => ['quantity'],
+                'properties' => [
+                    'parish_inventory_item_id' => ['type' => 'integer', 'description' => 'Item do inventario. Obrigatorio quando parish_inventory_item_quantity_id nao for enviado.'],
+                    'parish_inventory_item_quantity_id' => ['type' => 'integer', 'description' => 'Lote escolhido, com sua validade especifica. Opcional.'],
+                    'quantity' => ['type' => 'integer', 'minimum' => 1],
+                ],
+            ],
             'StoreParishRequest' => [
                 'type' => 'object',
                 'required' => ['name'],
@@ -1834,6 +2339,67 @@ return [
                     'valid_until' => ['type' => 'string', 'format' => 'date'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                ],
+            ],
+            'BasketTemplate' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string', 'nullable' => true],
+                    'active' => ['type' => 'boolean'],
+                    'items' => [
+                        'type' => 'array',
+                        'items' => ['$ref' => '#/components/schemas/BasketTemplateItem'],
+                    ],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                ],
+            ],
+            'BasketTemplateItem' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_inventory_item_id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string', 'nullable' => true],
+                    'quantity' => ['type' => 'integer'],
+                    'available_total_quantity' => ['type' => 'integer'],
+                    'quantities' => [
+                        'type' => 'array',
+                        'description' => 'Lotes disponiveis para escolher a validade da saida.',
+                        'items' => ['$ref' => '#/components/schemas/ParishInventoryItemQuantity'],
+                    ],
+                ],
+            ],
+            'BasketDelivery' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_id' => ['type' => 'integer'],
+                    'family_id' => ['type' => 'integer'],
+                    'family_name' => ['type' => 'string', 'nullable' => true],
+                    'basket_template_id' => ['type' => 'integer', 'nullable' => true],
+                    'basket_template_name' => ['type' => 'string', 'nullable' => true],
+                    'delivered_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'notes' => ['type' => 'string', 'nullable' => true],
+                    'items' => [
+                        'type' => 'array',
+                        'items' => ['$ref' => '#/components/schemas/BasketDeliveryItem'],
+                    ],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                ],
+            ],
+            'BasketDeliveryItem' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'integer'],
+                    'parish_inventory_item_id' => ['type' => 'integer'],
+                    'parish_inventory_item_quantity_id' => ['type' => 'integer'],
+                    'name' => ['type' => 'string', 'nullable' => true],
+                    'quantity' => ['type' => 'integer'],
+                    'valid_until' => ['type' => 'string', 'format' => 'date', 'nullable' => true],
                 ],
             ],
             'LogsCashbox' => [

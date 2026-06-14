@@ -76,6 +76,12 @@ Content-Type: application/json
 
 Use o `access_token` retornado como Bearer Token nos endpoints protegidos.
 
+Documentacao do estoque paroquial e saida de cestas:
+
+```text
+/documentacao-estoque
+```
+
 
 ## Comandos úteis
 

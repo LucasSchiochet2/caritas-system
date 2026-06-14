@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AssistedFamilyMemberController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BasketDeliveryController;
+use App\Http\Controllers\Api\BasketTemplateController;
 use App\Http\Controllers\Api\BazaarCustomerController;
 use App\Http\Controllers\Api\BazaarItemController;
 use App\Http\Controllers\Api\CashboxController;
@@ -61,10 +63,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('expired-items', [ParishInventoryItemController::class, 'expired_items']);
     Route::get('valid-until-this-week', [ParishInventoryItemController::class, 'valid_until_this_week']);
 
+    // --- Basket Templates and Deliveries ---
+    Route::get('basket-templates', [BasketTemplateController::class, 'index']);
+    Route::post('basket-templates', [BasketTemplateController::class, 'store']);
+    Route::get('basket-templates/{basketTemplate}', [BasketTemplateController::class, 'show']);
+    Route::patch('basket-templates/{basketTemplate}', [BasketTemplateController::class, 'update']);
+    Route::delete('basket-templates/{basketTemplate}', [BasketTemplateController::class, 'destroy']);
+
+    Route::get('basket-deliveries', [BasketDeliveryController::class, 'index']);
+    Route::post('basket-deliveries', [BasketDeliveryController::class, 'store']);
+    Route::get('basket-deliveries/{basketDelivery}', [BasketDeliveryController::class, 'show']);
+
     // --- Families ---
     Route::get('families', [FamilyController::class, 'index']);
     Route::get('inactive-families', [FamilyController::class, 'inactivateFamilies']);
     Route::post('families', [FamilyController::class, 'store']);
+    Route::get('families/{family}/basket-deliveries', [BasketDeliveryController::class, 'familyIndex']);
     Route::get('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'index']);
     Route::post('families/{family}/assisted-family-members', [AssistedFamilyMemberController::class, 'store']);
     Route::patch('families/{family}', [FamilyController::class, 'update']);

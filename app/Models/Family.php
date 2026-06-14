@@ -47,4 +47,9 @@ class Family extends Model
     {
         return $this->hasOne(AssistedFamilyMember::class)->where('is_responsible', true);
     }
+
+    public function basketDeliveries(): HasMany
+    {
+        return $this->hasMany(BasketDelivery::class);
+    }
 }

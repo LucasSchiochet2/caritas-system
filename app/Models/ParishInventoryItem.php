@@ -24,4 +24,14 @@ class ParishInventoryItem extends Model
     {
         return $this->hasMany(ParishInventoryItemQuantity::class);
     }
+
+    public function basketTemplateItems()
+    {
+        return $this->hasMany(BasketTemplateItem::class);
+    }
+
+    public function basketDeliveryItems()
+    {
+        return $this->hasMany(BasketDeliveryItem::class);
+    }
 }

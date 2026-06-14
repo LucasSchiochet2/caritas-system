@@ -18,4 +18,9 @@ class ParishInventoryItemQuantity extends Model
     {
         return $this->belongsTo(ParishInventoryItem::class);
     }
+
+    public function basketDeliveryItems()
+    {
+        return $this->hasMany(BasketDeliveryItem::class);
+    }
 }

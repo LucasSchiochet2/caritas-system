@@ -12,3 +12,4 @@ Route::get('/', function () {
 
 Route::get('docs/api', [OpenApiController::class, 'index'])->name('docs.openapi');
 Route::get('docs/api/openapi.json', [OpenApiController::class, 'json'])->name('docs.openapi.json');
+Route::view('documentacao-estoque', 'docs.inventory')->name('docs.inventory');

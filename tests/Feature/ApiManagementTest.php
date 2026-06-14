@@ -2,6 +2,8 @@
 
 use App\Enums\ParishRole;
 use App\Models\AssistedFamilyMember;
+use App\Models\BasketDelivery;
+use App\Models\BasketTemplate;
 use App\Models\BazaarCustomer;
 use App\Models\BazaarItem;
 use App\Models\Family;
@@ -453,6 +455,205 @@ it('summarizes expired and near-expiration parish inventory item quantities', fu
     } finally {
         Carbon::setTestNow();
     }
+});
+
+it('lets admins create basket templates and deliver baskets by selected validity lots', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $family = Family::factory()->for($parish)->create(['name' => 'Familia Recebedora']);
+    $inventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario de Cestas',
+        'description' => null,
+    ]);
+    $rice = ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Arroz',
+        'description' => null,
+        'total_quantity' => 10,
+    ]);
+    $riceFirstLot = ParishInventoryItemQuantity::query()->create([
+        'parish_inventory_item_id' => $rice->id,
+        'quantity' => 4,
+        'valid_until' => '2026-07-01',
+    ]);
+    $riceSecondLot = ParishInventoryItemQuantity::query()->create([
+        'parish_inventory_item_id' => $rice->id,
+        'quantity' => 6,
+        'valid_until' => '2026-08-01',
+    ]);
+    $beans = ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Feijao',
+        'description' => null,
+        'total_quantity' => 5,
+    ]);
+    $beansLot = ParishInventoryItemQuantity::query()->create([
+        'parish_inventory_item_id' => $beans->id,
+        'quantity' => 5,
+        'valid_until' => '2026-07-15',
+    ]);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/basket-templates', [
+            'parish_id' => $parish->id,
+            'name' => 'Cesta Basica',
+            'description' => 'Modelo mensal',
+            'items' => [
+                [
+                    'parish_inventory_item_id' => $rice->id,
+                    'quantity' => 2,
+                ],
+                [
+                    'parish_inventory_item_id' => $beans->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.name', 'Cesta Basica')
+        ->assertJsonPath('data.items.0.quantity', 2);
+
+    $template = BasketTemplate::query()->firstOrFail();
+
+    $this->withToken($token)
+        ->getJson('/api/basket-templates/'.$template->id)
+        ->assertOk()
+        ->assertJsonPath('data.items.0.available_total_quantity', 10)
+        ->assertJsonPath('data.items.0.quantities.0.valid_until', '2026-07-01')
+        ->assertJsonPath('data.items.0.quantities.1.valid_until', '2026-08-01');
+
+    $this->withToken($token)
+        ->postJson('/api/basket-deliveries', [
+            'family_id' => $family->id,
+            'basket_template_id' => $template->id,
+            'delivered_at' => '2026-06-13 10:00:00',
+            'notes' => 'Entrega mensal',
+            'items' => [
+                [
+                    'parish_inventory_item_quantity_id' => $riceSecondLot->id,
+                    'quantity' => 2,
+                ],
+                [
+                    'parish_inventory_item_quantity_id' => $beansLot->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.family_id', $family->id)
+        ->assertJsonPath('data.basket_template_id', $template->id)
+        ->assertJsonPath('data.items.0.valid_until', '2026-08-01')
+        ->assertJsonPath('data.items.1.valid_until', '2026-07-15');
+
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'id' => $riceFirstLot->id,
+        'quantity' => 4,
+    ]);
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'id' => $riceSecondLot->id,
+        'quantity' => 4,
+    ]);
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'id' => $beansLot->id,
+        'quantity' => 4,
+    ]);
+    $this->assertDatabaseHas('parish_inventory_items', [
+        'id' => $rice->id,
+        'total_quantity' => 8,
+    ]);
+
+    $this->withToken($token)
+        ->postJson('/api/basket-deliveries', [
+            'family_id' => $family->id,
+            'notes' => 'Cesta montada na hora',
+            'items' => [
+                [
+                    'parish_inventory_item_id' => $rice->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.basket_template_id', null)
+        ->assertJsonPath('data.items.0.valid_until', '2026-07-01');
+
+    $this->withToken($token)
+        ->postJson('/api/basket-deliveries', [
+            'family_id' => $family->id,
+            'basket_template_id' => $template->id,
+            'notes' => 'Cesta pelo template com validade automatica',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.basket_template_id', $template->id)
+        ->assertJsonPath('data.items.0.valid_until', '2026-07-01');
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/basket-deliveries')
+        ->assertOk()
+        ->assertJsonCount(3, 'data')
+        ->assertJsonFragment(['family_name' => 'Familia Recebedora'])
+        ->assertJsonFragment(['basket_template_name' => 'Cesta Basica']);
+
+    expect(BasketDelivery::query()->where('family_id', $family->id)->count())->toBe(3);
+});
+
+it('requires enough stock for selected lots and automatic basket allocation', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $family = Family::factory()->for($parish)->create();
+    $inventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario',
+        'description' => null,
+    ]);
+    $rice = ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Arroz',
+        'description' => null,
+        'total_quantity' => 1,
+    ]);
+    $riceLot = ParishInventoryItemQuantity::query()->create([
+        'parish_inventory_item_id' => $rice->id,
+        'quantity' => 1,
+        'valid_until' => '2026-07-01',
+    ]);
+    $template = BasketTemplate::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Cesta Teste',
+        'description' => null,
+        'active' => true,
+    ]);
+    $template->items()->create([
+        'parish_inventory_item_id' => $rice->id,
+        'quantity' => 2,
+    ]);
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/basket-deliveries', [
+            'family_id' => $family->id,
+            'basket_template_id' => $template->id,
+        ])
+        ->assertUnprocessable();
+
+    $this->withToken($token)
+        ->postJson('/api/basket-deliveries', [
+            'family_id' => $family->id,
+            'items' => [
+                [
+                    'parish_inventory_item_id' => $rice->id,
+                    'quantity' => 2,
+                ],
+            ],
+        ])
+        ->assertUnprocessable();
+
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'id' => $riceLot->id,
+        'quantity' => 1,
+    ]);
 });
 
 it('lets parish admins create cashboxes with their own parish id', function () {
