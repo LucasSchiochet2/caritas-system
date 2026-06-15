@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class ParishInventoryItem extends Model
 {
     use CrudTrait;
-    final protected $fillable = [
+    protected $fillable = [
         'parish_inventory_id',
         'name',
         'description',
