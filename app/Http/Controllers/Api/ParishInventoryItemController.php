@@ -41,6 +41,33 @@ class ParishInventoryItemController extends Controller
 
         return response()->json(['data' => $items]);
     }
+    public function indexbyParish(Request $request, int $parishId): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $parishInventoryScopeId = $this->parishInventoryScopeId($request);
+        $isDioceseScope = $this->isDioceseScope($request);
+        $search = trim((string) $request->query('search', ''));
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+        if ($parishScopeId !== null) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+        $items = ParishInventoryItem::query()
+            ->with('quantities')
+            ->whereHas('inventory', fn ($query) => $query->where('parish_id', $parishId))
+            ->when($parishInventoryScopeId !== null, fn ($query) => $query->where('parish_inventory_id', $parishInventoryScopeId))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                       ->orWhere(function ($subquery) use ($search) {
+                           $this->orWhereSimilarity($subquery, 'name', $search);
+                       });
+            })
+            ->get()
+            ->map(fn (ParishInventoryItem $item) => $this->payload($item));
+
+        return response()->json(['data' => $items]);
+    }
 
     public function store(Request $request): JsonResponse
     {
@@ -178,6 +205,44 @@ class ParishInventoryItemController extends Controller
         return response()->json([
             'expired_items_count' => $items->count(),
             'expired_total_quantity' => $items->sum('expired_quantity'),
+            'data' => $items,
+        ]);
+    }
+
+    public function low_stock_items(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $isDioceseScope = $this->isDioceseScope($request);
+        $data = $request->validate([
+            'threshold' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $threshold = (int) ($data['threshold'] ?? 5);
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+        if ($parishScopeId !== null) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+
+        $items = ParishInventoryItem::query()
+            ->with('quantities')
+            ->where('total_quantity', '<=', $threshold)
+            ->when($parishScopeId !== null, fn ($query) => $query->whereHas('inventory', fn ($query) => $query->where('parish_id', $parishScopeId)))
+            ->orderBy('total_quantity')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ParishInventoryItem $item): array {
+                return [
+                    ...$this->payload($item),
+                    'stock_status' => $item->total_quantity <= 0 ? 'missing' : 'low',
+                ];
+            });
+
+        return response()->json([
+            'threshold' => $threshold,
+            'missing_items_count' => $items->where('stock_status', 'missing')->count(),
+            'low_stock_items_count' => $items->count(),
+            'low_stock_total_quantity' => $items->sum('total_quantity'),
             'data' => $items,
         ]);
     }

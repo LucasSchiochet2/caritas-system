@@ -81,6 +81,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if (! $user->active) {
+            throw ValidationException::withMessages([
+                'email' => ['Este usuario esta inativo.'],
+            ]);
+        }
+
         return $user;
     }
 
@@ -110,6 +116,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'system_role' => $user->system_role->value,
+            'active' => $user->active,
             'parishes' => $user->relationLoaded('parishes')
                 ? $user->parishes->map(fn (Parish $parish) => $this->parishPayload($parish))->values()
                 : [],

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\HomeVisitController;
 use App\Http\Controllers\Api\ParishController;
 use App\Http\Controllers\Api\ParishInventoryController;
 use App\Http\Controllers\Api\ParishInventoryItemController;
+use App\Http\Controllers\Api\ParishInventoryRepasseController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -57,12 +58,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Parish Inventory Items ---
     Route::get('parish-inventory-items', [ParishInventoryItemController::class, 'index']);
+    Route::get('parish-inventory-items/{parishId}', [ParishInventoryItemController::class, 'indexbyParish']);
     Route::post('parish-inventory-items', [ParishInventoryItemController::class, 'store']);
     Route::post('parish-inventory-items/{parishInventoryItem}/quantities', [ParishInventoryItemController::class, 'addQuantity']);
     Route::patch('parish-inventory-items/{parishInventoryItem}', [ParishInventoryItemController::class, 'update']);
     Route::delete('parish-inventory-items/{parishInventoryItem}', [ParishInventoryItemController::class, 'destroy']);
     Route::get('expired-items', [ParishInventoryItemController::class, 'expired_items']);
+    Route::get('low-stock-items', [ParishInventoryItemController::class, 'low_stock_items']);
     Route::get('valid-until-this-week', [ParishInventoryItemController::class, 'valid_until_this_week']);
+
+    // --- Parish Inventory Repasses ---
+    Route::get('parish-inventory-repasses', [ParishInventoryRepasseController::class, 'index']);
+    Route::post('parish-inventory-repasses', [ParishInventoryRepasseController::class, 'store']);
+    Route::get('parish-inventory-repasses/{parishInventoryRepasse}', [ParishInventoryRepasseController::class, 'show']);
 
     // --- Basket Templates and Deliveries ---
     Route::get('basket-templates', [BasketTemplateController::class, 'index']);
@@ -106,8 +114,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Users ---
     Route::get('users', [UserController::class, 'index']);
+    Route::get('inactive-users', [UserController::class, 'inactiveUsers']);
     Route::post('users', [UserController::class, 'store']);
     Route::patch('users/{user}', [UserController::class, 'update']);
+    Route::patch('users/{user}/inactivate', [UserController::class, 'inactivate']);
+    Route::patch('users/{user}/activate', [UserController::class, 'activate']);
     Route::delete('users/{user}', [UserController::class, 'destroy']);
 
     // --- Parishes ---

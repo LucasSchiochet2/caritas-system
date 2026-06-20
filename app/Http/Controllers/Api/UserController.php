@@ -27,6 +27,32 @@ class UserController extends Controller
 
         $users = User::query()
             ->with('parishes:id,name,slug,active')
+            ->where('active', true)
+            ->when(! $isDioceseScope, function ($query) use ($parishScopeId) {
+                $query->whereHas('parishes', fn ($query) => $query->whereKey($parishScopeId));
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn (User $user) => $this->payload($user));
+
+        return response()->json(['data' => $users]);
+    }
+
+    public function inactiveUsers(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $parishScopeId = $this->parishScopeId($request);
+        $isDioceseScope = $actor->isDioceseAdmin() && $actor->tokenCan('diocese');
+
+        abort_unless($isDioceseScope || $parishScopeId !== null, 403);
+
+        if (! $isDioceseScope) {
+            abort_unless($actor->canManageParish($parishScopeId), 403);
+        }
+
+        $users = User::query()
+            ->with('parishes:id,name,slug,active')
+            ->where('active', false)
             ->when(! $isDioceseScope, function ($query) use ($parishScopeId) {
                 $query->whereHas('parishes', fn ($query) => $query->whereKey($parishScopeId));
             })
@@ -161,6 +187,29 @@ class UserController extends Controller
         return response()->json(null, 204);
     }
 
+    public function inactivate(Request $request, User $user): JsonResponse
+    {
+        abort_if($request->user()->is($user), 403);
+        abort_unless($this->canManageUser($request, $user), 403);
+
+        $user->active = false;
+        $user->save();
+        $user->tokens()->delete();
+
+        return response()->json(null, 204);
+    }
+
+    public function activate(Request $request, User $user): JsonResponse
+    {
+        abort_unless($this->canManageUser($request, $user), 403);
+
+        $user->active = true;
+        $user->save();
+        $user->load('parishes:id,name,slug,active');
+
+        return response()->json(['data' => $this->payload($user)]);
+    }
+
     private function canManageUser(Request $request, User $user): bool
     {
         $actor = $request->user();
@@ -201,6 +250,7 @@ class UserController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'system_role' => $user->system_role->value,
+            'active' => $user->active,
             'parishes' => $user->relationLoaded('parishes')
                 ? $user->parishes->map(fn (Parish $parish) => [
                     'id' => $parish->id,

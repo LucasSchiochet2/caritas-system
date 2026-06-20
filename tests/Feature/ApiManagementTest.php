@@ -14,6 +14,8 @@ use App\Models\Parish;
 use App\Models\ParishInventory;
 use App\Models\ParishInventoryItem;
 use App\Models\ParishInventoryItemQuantity;
+use App\Models\ParishInventoryRepasse;
+use App\Models\ParishInventoryRepasseItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -369,6 +371,207 @@ it('limits parish admins to parish inventory items from their parish', function 
         ->assertForbidden();
 });
 
+it('lists inventory items by requested parish without forcing the token parish scope', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $dioceseAdmin = User::factory()->dioceseAdmin()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+
+    $ownInventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario da Paroquia',
+        'description' => null,
+    ]);
+    $otherInventory = ParishInventory::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Inventario de Outra Paroquia',
+        'description' => null,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $ownInventory->id,
+        'name' => 'Feijao',
+        'description' => null,
+        'total_quantity' => 4,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $otherInventory->id,
+        'name' => 'Macarrao',
+        'description' => null,
+        'total_quantity' => 8,
+    ]);
+
+    $parishToken = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+    $dioceseToken = $dioceseAdmin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($parishToken)
+        ->getJson('/api/parish-inventory-items/'.$otherParish->id)
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Macarrao'])
+        ->assertJsonMissing(['name' => 'Feijao']);
+
+    $this->withToken($dioceseToken)
+        ->getJson('/api/parish-inventory-items/'.$parish->id)
+        ->assertOk()
+        ->assertJsonFragment(['name' => 'Feijao'])
+        ->assertJsonMissing(['name' => 'Macarrao']);
+});
+
+it('lets diocese admins record inventory repasses and add them to parish stock', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $token = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-repasses', [
+            'parish_id' => $parish->id,
+            'items' => [
+                [
+                    'name' => 'Sem validade',
+                    'quantity' => 1,
+                ],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('items.0.valid_until');
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-repasses', [
+            'parish_id' => $parish->id,
+            'delivered_at' => '2026-06-20 10:00:00',
+            'notes' => 'Repasse para prestacao de contas',
+            'items' => [
+                [
+                    'name' => 'Arroz',
+                    'description' => 'Pacote 5kg',
+                    'quantity' => 20,
+                    'unit' => 'pacote',
+                    'valid_until' => '2026-12-31',
+                ],
+                [
+                    'name' => 'Feijao',
+                    'quantity' => 10,
+                    'unit' => 'kg',
+                    'valid_until' => '2027-01-31',
+                ],
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.parish_id', $parish->id)
+        ->assertJsonPath('data.created_by', $admin->id)
+        ->assertJsonPath('data.movement_type', 'out')
+        ->assertJsonPath('data.items.0.name', 'Arroz')
+        ->assertJsonPath('data.items.0.quantity', 20)
+        ->assertJsonPath('data.items.0.valid_until', '2026-12-31')
+        ->assertJsonPath('data.items.1.name', 'Feijao');
+
+    $repasse = ParishInventoryRepasse::query()->firstOrFail();
+
+    $this->assertDatabaseHas('parish_inventory_repasses', [
+        'id' => $repasse->id,
+        'parish_id' => $parish->id,
+        'created_by' => $admin->id,
+        'movement_type' => 'out',
+        'notes' => 'Repasse para prestacao de contas',
+    ]);
+    $this->assertDatabaseHas('parish_inventory_repasse_items', [
+        'parish_inventory_repasse_id' => $repasse->id,
+        'name' => 'Arroz',
+        'quantity' => 20,
+        'unit' => 'pacote',
+    ]);
+    $inventory = ParishInventory::query()
+        ->where('parish_id', $parish->id)
+        ->firstOrFail();
+    $rice = ParishInventoryItem::query()
+        ->where('parish_inventory_id', $inventory->id)
+        ->where('name', 'Arroz')
+        ->firstOrFail();
+    $beans = ParishInventoryItem::query()
+        ->where('parish_inventory_id', $inventory->id)
+        ->where('name', 'Feijao')
+        ->firstOrFail();
+
+    expect($rice->total_quantity)->toBe(20)
+        ->and($beans->total_quantity)->toBe(10);
+
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'parish_inventory_item_id' => $rice->id,
+        'quantity' => 20,
+        'valid_until' => '2026-12-31',
+    ]);
+    $this->assertDatabaseHas('parish_inventory_item_quantities', [
+        'parish_inventory_item_id' => $beans->id,
+        'quantity' => 10,
+        'valid_until' => '2027-01-31',
+    ]);
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-repasses/'.$repasse->id)
+        ->assertOk()
+        ->assertJsonPath('data.items.0.name', 'Arroz');
+});
+
+it('limits parish inventory repasses by token scope and reserves creation to diocese', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+
+    $ownRepasse = ParishInventoryRepasse::query()->create([
+        'parish_id' => $parish->id,
+        'created_by' => null,
+        'movement_type' => 'out',
+        'delivered_at' => '2026-06-20 10:00:00',
+        'notes' => 'Repasse proprio',
+    ]);
+    ParishInventoryRepasseItem::query()->create([
+        'parish_inventory_repasse_id' => $ownRepasse->id,
+        'name' => 'Arroz',
+        'quantity' => 5,
+        'valid_until' => '2026-12-31',
+    ]);
+    $otherRepasse = ParishInventoryRepasse::query()->create([
+        'parish_id' => $otherParish->id,
+        'created_by' => null,
+        'movement_type' => 'out',
+        'delivered_at' => '2026-06-20 10:00:00',
+        'notes' => 'Repasse de outra paroquia',
+    ]);
+    ParishInventoryRepasseItem::query()->create([
+        'parish_inventory_repasse_id' => $otherRepasse->id,
+        'name' => 'Macarrao',
+        'quantity' => 7,
+        'valid_until' => '2026-12-31',
+    ]);
+
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-repasses')
+        ->assertOk()
+        ->assertJsonFragment(['notes' => 'Repasse proprio'])
+        ->assertJsonMissing(['notes' => 'Repasse de outra paroquia']);
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-repasses/'.$ownRepasse->id)
+        ->assertOk()
+        ->assertJsonPath('data.items.0.name', 'Arroz');
+
+    $this->withToken($token)
+        ->getJson('/api/parish-inventory-repasses/'.$otherRepasse->id)
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->postJson('/api/parish-inventory-repasses', [
+            'parish_id' => $parish->id,
+            'items' => [
+                ['name' => 'Oleo', 'quantity' => 1],
+            ],
+        ])
+        ->assertForbidden();
+});
+
 it('summarizes expired and near-expiration parish inventory item quantities', function () {
     Carbon::setTestNow('2026-06-13 12:00:00');
 
@@ -458,6 +661,64 @@ it('summarizes expired and near-expiration parish inventory item quantities', fu
     } finally {
         Carbon::setTestNow();
     }
+});
+
+it('lists missing and low stock parish inventory items', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+
+    $inventory = ParishInventory::query()->create([
+        'parish_id' => $parish->id,
+        'name' => 'Inventario da Paroquia',
+        'description' => null,
+    ]);
+    $otherInventory = ParishInventory::query()->create([
+        'parish_id' => $otherParish->id,
+        'name' => 'Inventario de Outra Paroquia',
+        'description' => null,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Arroz',
+        'description' => null,
+        'total_quantity' => 0,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Feijao',
+        'description' => null,
+        'total_quantity' => 3,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $inventory->id,
+        'name' => 'Macarrao',
+        'description' => null,
+        'total_quantity' => 8,
+    ]);
+    ParishInventoryItem::query()->create([
+        'parish_inventory_id' => $otherInventory->id,
+        'name' => 'Oleo',
+        'description' => null,
+        'total_quantity' => 1,
+    ]);
+
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/low-stock-items?threshold=3')
+        ->assertOk()
+        ->assertJsonPath('threshold', 3)
+        ->assertJsonPath('missing_items_count', 1)
+        ->assertJsonPath('low_stock_items_count', 2)
+        ->assertJsonPath('low_stock_total_quantity', 3)
+        ->assertJsonPath('data.0.name', 'Arroz')
+        ->assertJsonPath('data.0.stock_status', 'missing')
+        ->assertJsonPath('data.1.name', 'Feijao')
+        ->assertJsonPath('data.1.stock_status', 'low')
+        ->assertJsonMissing(['name' => 'Macarrao'])
+        ->assertJsonMissing(['name' => 'Oleo']);
 });
 
 it('lets admins create basket templates and deliver baskets by selected validity lots', function () {
@@ -732,9 +993,6 @@ it('lets diocese admins manage families from any parish', function () {
         ->getJson('/api/families')
         ->assertOk()
         ->assertJsonCount(0, 'data');
-
-
-
 
     $this->withToken($token)
         ->patchJson('/api/families/'.$family->id, [
@@ -1170,7 +1428,6 @@ it('lets admins manage assisted family members inside families', function () {
         ->assertOk()
         ->assertJsonFragment(['mother_name' => 'Ana Ferreira']);
 
-
     $this->withToken($token)
         ->getJson('/api/assisted-family-members/search-by-cpf?cpf=11122233344')
         ->assertOk()
@@ -1401,6 +1658,92 @@ it('lets diocese admins list update and delete users', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('users', ['id' => $deletedUser->id]);
+});
+
+it('inactivates lists and activates users', function () {
+    $admin = User::factory()->dioceseAdmin()->create();
+    $parish = Parish::factory()->create();
+    $user = User::factory()->create([
+        'email' => 'managed-active@example.com',
+        'password' => 'password',
+    ]);
+    $user->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $userToken = $user->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+    $adminToken = $admin->createToken('diocese-login', ['diocese'])->plainTextToken;
+
+    $this->withToken($adminToken)
+        ->patchJson('/api/users/'.$user->id.'/inactivate')
+        ->assertNoContent();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'active' => false,
+    ]);
+    $this->assertDatabaseMissing('personal_access_tokens', [
+        'tokenable_id' => $user->id,
+        'tokenable_type' => User::class,
+    ]);
+
+    $this->withToken($adminToken)
+        ->getJson('/api/users')
+        ->assertOk()
+        ->assertJsonMissing(['email' => 'managed-active@example.com']);
+
+    $this->withToken($adminToken)
+        ->getJson('/api/inactive-users')
+        ->assertOk()
+        ->assertJsonFragment(['email' => 'managed-active@example.com'])
+        ->assertJsonFragment(['active' => false]);
+
+    $this->postJson('/api/parish/login', [
+        'email' => 'managed-active@example.com',
+        'password' => 'password',
+        'parish_id' => $parish->id,
+    ])->assertUnprocessable();
+
+    $this->withToken($adminToken)
+        ->patchJson('/api/users/'.$user->id.'/activate')
+        ->assertOk()
+        ->assertJsonPath('data.active', true)
+        ->assertJsonPath('data.email', 'managed-active@example.com');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'active' => true,
+    ]);
+});
+
+it('lets parish admins inactivate and activate users from their parish only', function () {
+    $parish = Parish::factory()->create();
+    $otherParish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $managedUser = User::factory()->create(['email' => 'paroquia-inativa@example.com']);
+    $otherUser = User::factory()->create(['email' => 'outra-inativa@example.com']);
+
+    $admin->parishes()->attach($parish, ['role' => ParishRole::Admin->value]);
+    $managedUser->parishes()->attach($parish, ['role' => ParishRole::Member->value]);
+    $otherUser->parishes()->attach($otherParish, ['role' => ParishRole::Member->value]);
+
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->patchJson('/api/users/'.$managedUser->id.'/inactivate')
+        ->assertNoContent();
+
+    $this->withToken($token)
+        ->getJson('/api/inactive-users')
+        ->assertOk()
+        ->assertJsonFragment(['email' => 'paroquia-inativa@example.com'])
+        ->assertJsonMissing(['email' => 'outra-inativa@example.com']);
+
+    $this->withToken($token)
+        ->patchJson('/api/users/'.$managedUser->id.'/activate')
+        ->assertOk()
+        ->assertJsonPath('data.active', true);
+
+    $this->withToken($token)
+        ->patchJson('/api/users/'.$otherUser->id.'/inactivate')
+        ->assertForbidden();
 });
 
 it('limits parish admins to users from their parish', function () {
