@@ -3067,7 +3067,7 @@ return [
                     'password' => ['type' => 'string', 'format' => 'password', 'minLength' => 8],
                     'system_role' => ['type' => 'string', 'enum' => ['user', 'diocese_admin']],
                     'parish_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
-                    'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin'], 'default' => 'admin'],
+                    'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin', 'admin_no_visits'], 'default' => 'admin'],
                 ],
             ],
             'UpdateSelfRequest' => [
@@ -3086,7 +3086,7 @@ return [
                         'properties' => [
                             'system_role' => ['type' => 'string', 'enum' => ['user', 'diocese_admin']],
                             'parish_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
-                            'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin']],
+                            'parish_role' => ['type' => 'string', 'enum' => ['member', 'admin', 'admin_no_visits']],
                         ],
                     ],
                 ],
@@ -3350,7 +3350,7 @@ return [
                     [
                         'type' => 'object',
                         'properties' => [
-                            'role' => ['type' => 'string', 'enum' => ['member', 'admin']],
+                            'role' => ['type' => 'string', 'enum' => ['member', 'admin', 'admin_no_visits']],
                         ],
                     ],
                 ],

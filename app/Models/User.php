@@ -61,7 +61,10 @@ class User extends Authenticatable
 
     public function administeredParishes(): BelongsToMany
     {
-        return $this->parishes()->wherePivot('role', ParishRole::Admin->value);
+        return $this->parishes()->wherePivotIn('role', [
+            ParishRole::Admin->value,
+            ParishRole::AdminNoVisits->value,
+        ]);
     }
 
     public function isDioceseAdmin(): bool
@@ -87,5 +90,22 @@ class User extends Authenticatable
         $parishId = $parish instanceof Parish ? $parish->getKey() : $parish;
 
         return $this->administeredParishes()->whereKey($parishId)->exists();
+    }
+
+    public function canManageHomeVisits(Parish|int|null $parish = null): bool
+    {
+        if ($this->isDioceseAdmin()) {
+            return true;
+        }
+
+        $query = $this->parishes()->wherePivot('role', ParishRole::Admin->value);
+
+        if ($parish !== null) {
+            $parishId = $parish instanceof Parish ? $parish->getKey() : $parish;
+
+            $query->whereKey($parishId);
+        }
+
+        return $query->exists();
     }
 }

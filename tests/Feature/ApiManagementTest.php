@@ -1357,6 +1357,40 @@ it('prevents parish admins from managing home visits outside their parish', func
         ->assertForbidden();
 });
 
+it('prevents parish admins without visits from accessing home visits', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create();
+    $admin->parishes()->attach($parish, ['role' => ParishRole::AdminNoVisits->value]);
+    $family = Family::factory()->for($parish)->create();
+    $visit = HomeVisit::query()->create([
+        'family_id' => $family->id,
+        'user_id' => $admin->id,
+        'visit_date' => now()->addDays(2)->setTime(10, 0)->toDateTimeString(),
+    ]);
+    $token = $admin->createToken('parish-login', ['parish:'.$parish->id])->plainTextToken;
+
+    $this->withToken($token)
+        ->getJson('/api/home-visits')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->getJson('/api/families/'.$family->id.'/home-visits')
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->postJson('/api/families/'.$family->id.'/home-visits', [
+            'user_id' => $admin->id,
+            'visit_date' => now()->addDays(3)->setTime(14, 0)->toDateTimeString(),
+        ])
+        ->assertForbidden();
+
+    $this->withToken($token)
+        ->patchJson('/api/home-visits/'.$visit->id.'/reschedule', [
+            'visit_date' => now()->addDays(5)->setTime(10, 0)->toDateTimeString(),
+        ])
+        ->assertForbidden();
+});
+
 it('requires a responsible assisted member when creating a family', function () {
     $admin = User::factory()->dioceseAdmin()->create();
     $parish = Parish::factory()->create();
@@ -1618,6 +1652,36 @@ it('logs in a parish admin and creates users for that parish', function () {
         ->assertJsonPath('data.parishes.0.role', ParishRole::Admin->value);
 });
 
+it('logs in a parish admin without visits and keeps regular parish management access', function () {
+    $parish = Parish::factory()->create();
+    $admin = User::factory()->create([
+        'email' => 'parish-no-visits@example.com',
+        'password' => 'password',
+    ]);
+
+    $admin->parishes()->attach($parish, ['role' => ParishRole::AdminNoVisits->value]);
+
+    $login = $this->postJson('/api/parish/login', [
+        'email' => 'parish-no-visits@example.com',
+        'password' => 'password',
+        'parish_id' => $parish->id,
+    ]);
+
+    $login->assertOk()
+        ->assertJsonPath('abilities.0', 'parish:'.$parish->id)
+        ->assertJsonPath('parish.id', $parish->id);
+
+    $token = $login->json('access_token');
+
+    $this->withToken($token)
+        ->getJson('/api/families')
+        ->assertOk();
+
+    $this->withToken($token)
+        ->getJson('/api/home-visits')
+        ->assertForbidden();
+});
+
 it('lets diocese admins list update and delete users', function () {
     $admin = User::factory()->dioceseAdmin()->create();
     $parish = Parish::factory()->create();
@@ -1856,5 +1920,6 @@ it('lists available roles', function () {
         ->assertJsonPath('data.system_roles.0.value', 'user')
         ->assertJsonPath('data.system_roles.1.value', 'diocese_admin')
         ->assertJsonPath('data.parish_roles.0.value', 'member')
-        ->assertJsonPath('data.parish_roles.1.value', 'admin');
+        ->assertJsonPath('data.parish_roles.1.value', 'admin')
+        ->assertJsonPath('data.parish_roles.2.value', 'admin_no_visits');
 });

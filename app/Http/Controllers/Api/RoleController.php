@@ -20,6 +20,7 @@ class RoleController extends Controller
                 'parish_roles' => [
                     $this->role(ParishRole::Member->value, 'Membro'),
                     $this->role(ParishRole::Admin->value, 'Admin da paroquia'),
+                    $this->role(ParishRole::AdminNoVisits->value, 'Admin da paroquia sem visitas'),
                 ],
             ],
         ]);

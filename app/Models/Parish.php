@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ParishRole;
 use Backpack\CRUD\app\Models\Traits\CrudTrait;
 use Database\Factories\ParishFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -84,6 +85,9 @@ class Parish extends Model
 
     public function admins(): BelongsToMany
     {
-        return $this->users()->wherePivot('role', 'admin');
+        return $this->users()->wherePivotIn('role', [
+            ParishRole::Admin->value,
+            ParishRole::AdminNoVisits->value,
+        ]);
     }
 }

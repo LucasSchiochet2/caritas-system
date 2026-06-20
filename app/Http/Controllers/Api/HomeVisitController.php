@@ -107,6 +107,7 @@ class HomeVisitController extends Controller
 
         return response()->json(['data' => $this->payload($homeVisit)]);
     }
+
     public function cancel(Request $request, HomeVisit $homeVisit): JsonResponse
     {
         $this->authorizeHomeVisit($request, $homeVisit);
@@ -153,7 +154,7 @@ class HomeVisitController extends Controller
         abort_unless($isDioceseScope || $parishScopeId !== null, 403);
 
         if ($parishScopeId !== null) {
-            abort_unless($actor->canManageParish($parishScopeId), 403);
+            abort_unless($actor->canManageHomeVisits($parishScopeId), 403);
         }
 
         return $parishScopeId;
@@ -170,7 +171,7 @@ class HomeVisitController extends Controller
         abort_unless(
             $parishScopeId !== null
                 && $family->parish_id === $parishScopeId
-                && $request->user()->canManageParish($parishScopeId),
+                && $request->user()->canManageHomeVisits($parishScopeId),
             403
         );
     }
@@ -186,7 +187,7 @@ class HomeVisitController extends Controller
         abort_unless(
             $parishScopeId !== null
                 && $homeVisit->family?->parish_id === $parishScopeId
-                && $request->user()->canManageParish($parishScopeId),
+                && $request->user()->canManageHomeVisits($parishScopeId),
             403
         );
     }

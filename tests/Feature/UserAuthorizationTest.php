@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ParishRole;
 use App\Models\Parish;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,6 +24,17 @@ it('allows parish admins to manage only their parish', function () {
     expect($user->isParishAdmin())->toBeTrue()
         ->and($user->canManageParish($ownParish))->toBeTrue()
         ->and($user->canManageParish($otherParish))->toBeFalse();
+});
+
+it('allows parish admins without visits to manage the parish but not home visits', function () {
+    $user = User::factory()->create();
+    $parish = Parish::factory()->create();
+
+    $user->parishes()->attach($parish, ['role' => ParishRole::AdminNoVisits->value]);
+
+    expect($user->isParishAdmin())->toBeTrue()
+        ->and($user->canManageParish($parish))->toBeTrue()
+        ->and($user->canManageHomeVisits($parish))->toBeFalse();
 });
 
 it('redirects authenticated admins away from the login page to the admin dashboard', function () {

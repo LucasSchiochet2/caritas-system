@@ -14,7 +14,7 @@ class HomeVisitRequest extends FormRequest
     public function authorize()
     {
         // only allow updates if the user is logged in
-        return backpack_user()?->isParishAdmin() === true;
+        return backpack_user()?->canManageHomeVisits() === true;
     }
 
     /**
