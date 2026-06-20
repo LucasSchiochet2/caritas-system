@@ -152,21 +152,21 @@ class DatabaseSeeder extends Seeder
             $parish->users()->attach($parishAdmin, ['role' => ParishRole::Admin->value]);
             $parish->users()->attach($member, ['role' => ParishRole::Member->value]);
 
-            if ($index !== 0) {
-                continue;
-            }
-
             $cashbox = Cashbox::query()->create([
                 'parish_id' => $parish->id,
-                'name' => 'Caixa principal',
-                'balance' => 25000,
+                'name' => 'Caixa Principal',
+                'balance' => 0,
             ]);
 
             $inventory = ParishInventory::query()->create([
                 'parish_id' => $parish->id,
-                'name' => 'Estoque principal',
-                'description' => 'Itens para composicao de cestas.',
+                'name' => 'Inventário Principal',
+                'description' => null,
             ]);
+
+            if ($index !== 0) {
+                continue;
+            }
 
             $inventoryItems = collect([
                 'Arroz',
